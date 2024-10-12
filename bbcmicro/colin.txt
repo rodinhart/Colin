@@ -1,0 +1,236 @@
+REM http://www.6502.org/tutorials/6502opcodes.html
+REM https://bbcmic.ro/
+
+MODE 0
+
+ip% = &70 : REM could be another VARIABLE
+indirect% = &72
+temp% = &74
+arg% = &76
+
+DIM sp% 511
+
+DIM code% 1023
+FOR p% = 0 TO 3 STEP 3
+P% = code%
+[OPT p%
+.boot%
+  LDX #0
+.boot_loop%
+  LDA core%, X
+  BEQ boot_end%
+
+  LDA latest% + 8
+  STA arg%
+  LDA latest% + 9
+  STA arg% + 1
+
+  LDA here% + 8 ; HERE @ LATEST !
+  STA latest% + 8
+  LDA here% + 9
+  STA latest% + 9
+
+  JSR comma% ; link
+
+  LDA #0 ; todo actually use flag
+  STA arg%
+  STA arg% + 1
+  JSR comma% ; flags
+
+  LDA #core% AND &FF
+  STA arg%
+  LDA #(core% / 256) AND &FF
+  STA arg% + 1
+  TXA
+  CLC
+  ADC arg%
+  STA arg%
+  LDA #0
+  ADC arg% + 1
+  STA arg% + 1
+  JSR comma% ; word
+
+.boot_word%
+  LDA core%, X
+  INX
+  CMP #32
+  BPL boot_word%
+
+  LDA core%, X
+  INX
+  STA arg%
+  LDA core%, X
+  INX
+  STA arg% + 1
+  JSR comma% ; codeword#
+  JMP boot_loop%
+
+.boot_end%
+  RTS
+
+.comma%
+  LDA here% + 8
+  STA temp%
+  LDA here% + 9
+  STA temp% + 1
+
+  LDA arg%
+  LDY #0
+  STA (temp%), Y
+  LDA arg% + 1
+  INY
+  STA (temp%), Y
+
+  LDA #2
+  CLC
+  ADC here% + 8
+  STA here% + 8
+  LDA #0
+  ADC here% + 9
+  STA here% + 9
+
+  RTS
+
+.DOCOL%
+  LDA ip%
+  PHA
+  LDA ip% + 1
+  PHA
+
+  LDA #2
+  CLC
+  ADC indirect% ; corrupts indirect, which is oke because NEXT does as well
+  STA ip%
+  LDA #0
+  ADC indirect% + 1
+  STA ip% + 1
+
+  JMP NXT%
+
+.EXIT%
+  PLA
+  STA ip% + 1
+  PLA
+  STA ip%
+  JMP NXT%
+
+.LIT%
+  LDY #0
+  LDA (ip%), Y
+  STA sp%, X
+  INY
+  LDA (ip%), Y
+  STA sp% + 256, X
+  INX
+
+  LDA #2
+  CLC
+  ADC ip%
+  STA ip%
+  LDA #0
+  ADC ip% + 1
+  STA ip% + 1
+
+  JMP NXT%
+
+.NXT%
+  LDA #0
+  CMP ip%
+  BNE next_continue%
+  CMP ip% + 1
+  BNE next_continue%
+  RTS
+.next_continue%
+  LDY #0
+  LDA (ip%), Y
+  STA temp%
+  INY
+  LDA (ip%), Y
+  STA temp% + 1
+
+  LDY #0
+  LDA (temp%), Y
+  STA indirect%
+  INY
+  LDA (temp%), Y
+  STA indirect% + 1
+
+  LDA #2
+  CLC
+  ADC ip%
+  STA ip%
+  LDA #0
+  ADC ip% + 1
+  STA ip% + 1
+
+  JMP (indirect%)
+
+.plus%
+  DEX
+  LDA sp%, X
+  STA temp%
+  DEX
+  LDA sp%, X
+  CLC
+  ADC temp%
+  STA sp%, X
+  INX
+  JMP NXT%
+
+.variable%
+  LDA indirect%
+  CLC
+  ADC #2 ; advance to param
+  STA sp%, X
+  LDA indirect% + 1
+  ADC #0
+  STA sp% + 256, X
+  INX
+  JMP NXT%
+
+.core%
+  EQUS "+" : EQUB 0 : EQUW plus%
+  EQUS "LIT" : EQUB 2 : EQUW LIT%
+  EQUS "EXIT" : EQUB 2 : EQUW EXIT%
+  EQUB 0
+
+.main%
+  EQUW latest% + 10 + 1*8 + 6 ; LIT
+  EQUW 28
+  EQUW latest% + 10 + 1*8 + 6 ; LIT
+  EQUW 14
+  EQUW latest% + 10 + 0*8 + 6 ; +
+  EQUW latest% + 10 + 2*8 + 6 ; EXIT
+
+.Here%
+  EQUS "HERE" : EQUB 0
+.Latest%
+  EQUS "LATEST" : EQUB 0
+
+.here%
+  EQUW 0 ; link
+  EQUW 0 ; flags 1=immediate
+  EQUW Here% ; name
+  EQUW variable% ; codeword
+  EQUW latest% + 10 ; params
+
+.latest%
+  EQUW here%
+  EQUW 0
+  EQUW Latest%
+  EQUW variable%
+  EQUW latest%
+
+  EQUW 0
+  EQUW 0
+  EQUW 0
+  EQUW 0
+]:NEXT
+PRINT P% - code% " bytes"
+CALL boot%
+indirect%?0 = main% - 2
+indirect%?1 = (main% - 2) / 256
+X% = 0
+r% = USR(DOCOL%) AND &FFFF
+PRINT "result " ;~r%
+PRINT sp%?0
