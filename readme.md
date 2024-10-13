@@ -4,7 +4,7 @@ An playground forth, implemented in JavaScript first to tease out the structure.
 
 Although the forth words used are kept as close as possible to the Forth Standard (2012), Colin overall semantics are completely different. Most notably, everything in Colin is compiled. There is no interpreter mode, although there are immediate words. For example
 
-```f
+```forth
 5 < IF "lo" ELSE "hi" THEN
 ```
 
@@ -19,3 +19,24 @@ When in compilation mode, everything encountered is added to the memory pointed 
 ## Branching only works in definitions
 
 Branching manipulated the instruction pointer, which is only available when compiled code is run; the interpreter has no instruction pointer.
+
+## Primitives
+
+```
+HERE
+@
+!
+LATEST
+
+IP
+>R
+INDIRECT
+```
+
+## Core
+
+```
+: COMMA HERE @ !  HERE @ 1 + HERE !
+: DOCOL IP @ >R  INDIRECT @ 1 + IP ! NEXT ;
+: NEXT
+```

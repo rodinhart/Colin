@@ -1,12 +1,17 @@
 REM http://www.6502.org/tutorials/6502opcodes.html
 REM https://bbcmic.ro/
 
-MODE 0
+LINK = 0
+FLAGS = 2
+NAME = 4
+CODEWORD = 6
+PARAMS = 8
 
 ip% = &70 : REM could be another VARIABLE
 indirect% = &72
 temp% = &74
 arg% = &76
+stdin% = &78
 
 DIM sp% 511
 
@@ -20,7 +25,7 @@ P% = code%
   LDA core%, X
   BEQ boot_end%
 
-  LDA latest% + 8
+  LDA latest% + 8 ; LATEST @
   STA arg%
   LDA latest% + 9
   STA arg% + 1
@@ -53,8 +58,8 @@ P% = code%
 .boot_word%
   LDA core%, X
   INX
-  CMP #32
-  BPL boot_word%
+  CMP #33
+  BCS boot_word%
 
   LDA core%, X
   INX
@@ -113,6 +118,57 @@ P% = code%
   PLA
   STA ip%
   JMP NXT%
+
+.find%
+  LDA latest% + 8
+  STA arg%
+  LDA latest% + 9
+  STA arg% + 1
+.find_loop%
+  LDA arg% ; could move null check to end (assuming at least singleton list)
+  BNE find_continue%
+  LDA arg% + 1
+  BNE find_continue%
+
+  STA sp%, X ; end of linked list
+  STA sp% + 256, X
+  INX
+  RTS
+
+.find_continue%
+  LDY #NAME
+  LDA (arg%), Y
+  STA temp%
+  INY
+  LDA (arg%), Y
+  STA temp% + 1
+  LDY #0
+.find_compare%
+  LDA (temp%), Y
+  JSR &FFE3
+  CMP (stdin%), Y
+  BNE find_next%
+  INY
+  CMP #33
+  BCS find_compare%
+
+  LDA arg% ; found
+  STA sp%, X
+  LDA arg% + 1
+  STA sp% + 256, X
+  INX
+  RTS
+
+.find_next% 
+  LDY #0 ; not found try next item in list
+  LDA (arg%), Y
+  PHA
+  INY
+  LDA (arg%), Y
+  STA arg% + 1
+  PLA
+  STA arg%
+  JMP find_loop%
 
 .LIT%
   LDY #0
@@ -188,10 +244,19 @@ P% = code%
   INX
   JMP NXT%
 
+.word%
+  LDY #0
+.word_loop%
+  LDA (stdin%), Y
+  INY
+  CMP #33
+  BCS word_loop%
+  RTS
+
 .core%
-  EQUS "+" : EQUB 0 : EQUW plus%
-  EQUS "LIT" : EQUB 2 : EQUW LIT%
-  EQUS "EXIT" : EQUB 2 : EQUW EXIT%
+  EQUS "+ " : EQUW plus%
+  EQUS "LIT " : EQUW LIT%
+  EQUS "EXIT " : EQUW EXIT%
   EQUB 0
 
 .main%
@@ -202,10 +267,14 @@ P% = code%
   EQUW latest% + 10 + 0*8 + 6 ; +
   EQUW latest% + 10 + 2*8 + 6 ; EXIT
 
+.colin%
+  EQUS "LATEST "
+
+
 .Here%
-  EQUS "HERE" : EQUB 0
+  EQUS "HERE "
 .Latest%
-  EQUS "LATEST" : EQUB 0
+  EQUS "LATEST "
 
 .here%
   EQUW 0 ; link
@@ -233,4 +302,12 @@ indirect%?1 = (main% - 2) / 256
 X% = 0
 r% = USR(DOCOL%) AND &FFFF
 PRINT "result " ;~r%
-PRINT sp%?0
+PRINT "peek " ;sp%?0
+PRINT ""
+
+stdin%?0 = colin%
+stdin%?1 = colin% / 256
+r% = USR(find%)
+PRINT ""
+PRINT "find " ;~r%
+PRINT "peek " ;~(sp%!0)
