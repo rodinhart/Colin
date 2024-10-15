@@ -16,19 +16,20 @@ stdin% = &78
 DIM sp% 511
 
 DIM code% 1023
-FOR p% = 0 TO 3 STEP 3
+FOR p% = 0 TO 2 STEP 2
 P% = code%
 [OPT p%
 .boot%
-  LDX #0
+  LDY #0
 .boot_loop%
-  LDA core%, X
+  LDA core%, Y
   BEQ boot_end%
 
   LDA latest% + 8 ; LATEST @
-  STA arg%
+  STA sp%, X
   LDA latest% + 9
-  STA arg% + 1
+  STA sp% + 256, X
+  INX
 
   LDA here% + 8 ; HERE @ LATEST !
   STA latest% + 8
@@ -38,51 +39,56 @@ P% = code%
   JSR comma% ; link
 
   LDA #0 ; todo actually use flag
-  STA arg%
-  STA arg% + 1
+  STA sp%, X
+  STA sp% + 256, X
+  INX
   JSR comma% ; flags
 
   LDA #core% AND &FF
-  STA arg%
+  STA sp%, X
   LDA #(core% / 256) AND &FF
-  STA arg% + 1
-  TXA
+  STA sp% + 256, X
+  TYA
   CLC
-  ADC arg%
-  STA arg%
+  ADC sp%, X
+  STA sp%, X
   LDA #0
-  ADC arg% + 1
-  STA arg% + 1
+  ADC sp% + 256, X
+  STA sp% + 256, X
+  INX
   JSR comma% ; word
 
 .boot_word%
-  LDA core%, X
-  INX
+  LDA core%, Y
+  INY
   CMP #33
   BCS boot_word%
 
-  LDA core%, X
+  LDA core%, Y
+  INY
+  STA sp%, X
+  LDA core%, Y
+  INY
+  STA sp% + 256, X
   INX
-  STA arg%
-  LDA core%, X
-  INX
-  STA arg% + 1
-  JSR comma% ; codeword#
+  JSR comma% ; codeword
   JMP boot_loop%
 
 .boot_end%
   RTS
 
 .comma%
+  TYA : PHA
   LDA here% + 8
   STA temp%
   LDA here% + 9
   STA temp% + 1
 
-  LDA arg%
+  DEX
+  LDA sp%, X
   LDY #0
   STA (temp%), Y
-  LDA arg% + 1
+  LDA sp% + 256, X
   INY
   STA (temp%), Y
 
@@ -94,7 +100,69 @@ P% = code%
   ADC here% + 9
   STA here% + 9
 
+  PLA : TAY
   RTS
+
+.compile%
+  LDY #0
+LDA (stdin%), Y
+JSR &FFE3
+  LDA (stdin%), Y
+  BEQ compile_done%
+
+  JSR find%
+  LDA sp% - 1, X ; peek
+  BNE compile_word%
+  LDA sp% + 255, X
+  BNE compile_word%
+
+  LDA #ASC "N"
+  JSR &FFE3
+  DEX ; discard not found
+
+  LDA stdin% ; compile LIT
+  PHA
+  LDA stdin% + 1
+  PHA
+  LDA #Lit% AND &FF
+  STA stdin%
+  LDA #(Lit% / 256) AND &FF
+  STA stdin% + 1
+  JSR find%
+  PLA
+  STA stdin% + 1
+  PLA
+  STA stdin%
+  LDA #CODEWORD
+  CLC
+  ADC sp% - 1, X
+  STA sp% - 1, X
+  LDA #0
+  ADC sp% + 255, X
+  STA sp% + 255, X
+  JSR comma%
+
+  JSR NUMBER% ; compile number
+  JSR comma%
+  JSR word% ; skip number
+  JMP compile%
+
+.compile_word%
+  LDA #ASC "W"
+  JSR &FFE3
+  LDA #CODEWORD
+  CLC
+  ADC sp% - 1, X
+  STA sp% - 1, X
+  LDA #0
+  ADC sp% + 255, X
+  STA sp% + 255, X
+  JSR comma%
+  JSR word%
+  JMP compile%
+
+.compile_done%
+  JMP NXT%
 
 .DOCOL%
   LDA ip%
@@ -113,6 +181,8 @@ P% = code%
   JMP NXT%
 
 .EXIT%
+  LDA #ASC "X"
+  JSR &FFE3
   PLA
   STA ip% + 1
   PLA
@@ -120,6 +190,7 @@ P% = code%
   JMP NXT%
 
 .find%
+  TYA : PHA
   LDA latest% + 8
   STA arg%
   LDA latest% + 9
@@ -133,7 +204,8 @@ P% = code%
   STA sp%, X ; end of linked list
   STA sp% + 256, X
   INX
-  RTS
+  PLA : TAY
+  JMP NXT%
 
 .find_continue%
   LDY #NAME
@@ -145,7 +217,6 @@ P% = code%
   LDY #0
 .find_compare%
   LDA (temp%), Y
-  JSR &FFE3
   CMP (stdin%), Y
   BNE find_next%
   INY
@@ -157,7 +228,8 @@ P% = code%
   LDA arg% + 1
   STA sp% + 256, X
   INX
-  RTS
+  PLA : TAY
+  JMP NXT%
 
 .find_next% 
   LDY #0 ; not found try next item in list
@@ -221,6 +293,48 @@ P% = code%
 
   JMP (indirect%)
 
+.NUMBER%
+  TYA : PHA
+  LDA #0
+  STA sp%, X
+  STA sp% + 256, X
+  LDY #0
+.number_loop%
+  LDA sp%, X ; times 2
+  ASL A
+  STA temp%
+  LDA sp% + 256, X
+  ROL A
+  STA temp% + 1
+  ASL temp% ; times 4
+  ROL temp% + 1
+  LDA temp% ; times 5
+  CLC
+  ADC sp%, X
+  STA sp%, X
+  LDA temp% + 1
+  ADC sp% + 256, X
+  STA sp% + 256, X
+  ASL sp%, X ; times 10
+  ROL sp% + 256, X
+
+  LDA (stdin%), Y
+  SEC
+  SBC #ASC "0"
+  CLC
+  ADC sp%, X
+  STA sp%, X
+
+  INY
+  LDA (stdin%), Y
+  CMP #33
+  BCS number_loop%
+
+  INX
+  PLA : TAY
+  JMP NXT%
+
+
 .plus%
   DEX
   LDA sp%, X
@@ -245,31 +359,36 @@ P% = code%
   JMP NXT%
 
 .word%
+  TYA : PHA
   LDY #0
 .word_loop%
   LDA (stdin%), Y
   INY
   CMP #33
   BCS word_loop%
+
+  TYA
+  CLC
+  ADC stdin%
+  STA stdin%
+  LDA #0
+  ADC stdin% + 1
+  STA stdin% + 1
+
+  PLA : TAY
   RTS
 
+
+
 .core%
-  EQUS "+ " : EQUW plus%
+.Lit%
   EQUS "LIT " : EQUW LIT%
+  EQUS "+ " : EQUW plus%
   EQUS "EXIT " : EQUW EXIT%
   EQUB 0
 
-.main%
-  EQUW latest% + 10 + 1*8 + 6 ; LIT
-  EQUW 28
-  EQUW latest% + 10 + 1*8 + 6 ; LIT
-  EQUW 14
-  EQUW latest% + 10 + 0*8 + 6 ; +
-  EQUW latest% + 10 + 2*8 + 6 ; EXIT
-
 .colin%
-  EQUS "LATEST "
-
+  EQUS "3 4 + EXIT " : EQUB 0
 
 .Here%
   EQUS "HERE "
@@ -289,25 +408,31 @@ P% = code%
   EQUW Latest%
   EQUW variable%
   EQUW latest%
-
-  EQUW 0
-  EQUW 0
-  EQUW 0
-  EQUW 0
 ]:NEXT
 PRINT P% - code% " bytes"
-CALL boot%
-indirect%?0 = main% - 2
-indirect%?1 = (main% - 2) / 256
+
 X% = 0
-r% = USR(DOCOL%) AND &FFFF
-PRINT "result " ;~r%
-PRINT "peek " ;sp%?0
-PRINT ""
+CALL boot%
+
+compiled% = !(here% + PARAMS) AND &FFFF
+indirect%?0 = compiled% - 2
+indirect%?1 = (compiled% - 2) / 256
 
 stdin%?0 = colin%
 stdin%?1 = colin% / 256
-r% = USR(find%)
+ip%?0 = 0 : ip%?1 = 0
+r% = USR(compile%)
 PRINT ""
-PRINT "find " ;~r%
-PRINT "peek " ;~(sp%!0)
+PRINT "compile " ;~r%
+
+PRINT "compiled " ;~compiled%
+ptr% = !compiled% AND &FFFF
+PRINT "ptr " ;~ptr%
+PRINT "codeword " ;~(!ptr% AND &FFFF)
+PRINT "LIT " ;~LIT%
+
+PRINT ~indirect%?1;~indirect%?0
+r% = USR(DOCOL%)
+PRINT ""
+PRINT "docol " ;~r%
+PRINT sp%?0
