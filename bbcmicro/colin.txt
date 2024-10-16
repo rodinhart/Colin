@@ -23,39 +23,28 @@ P% = code%
   LDY #0
 .boot_loop%
   LDA core%, Y
-  BEQ boot_end%
+  BMI boot_end%
 
-  LDA latest% + 8 ; LATEST @
-  STA sp%, X
-  LDA latest% + 9
-  STA sp% + 256, X
-  INX
+  JSR create%
 
-  LDA here% + 8 ; HERE @ LATEST !
-  STA latest% + 8
-  LDA here% + 9
-  STA latest% + 9
-
-  JSR comma% ; link
-
-  LDA #0 ; todo actually use flag
-  STA sp%, X
-  STA sp% + 256, X
-  INX
+  LDA core%, Y ; todo actually use flag
+  INY
+  STA arg%
+  LDA #0
+  STA arg% + 1
   JSR comma% ; flags
 
   LDA #core% AND &FF
-  STA sp%, X
+  STA arg%
   LDA #(core% / 256) AND &FF
-  STA sp% + 256, X
+  STA arg% + 1
   TYA
   CLC
-  ADC sp%, X
-  STA sp%, X
+  ADC arg%
+  STA arg%
   LDA #0
-  ADC sp% + 256, X
-  STA sp% + 256, X
-  INX
+  ADC arg% + 1
+  STA arg% + 1
   JSR comma% ; word
 
 .boot_word%
@@ -66,47 +55,46 @@ P% = code%
 
   LDA core%, Y
   INY
-  STA sp%, X
+  STA arg%
   LDA core%, Y
   INY
-  STA sp% + 256, X
-  INX
+  STA arg% + 1
   JSR comma% ; codeword
   JMP boot_loop%
 
 .boot_end%
   RTS
 
+.COLON%
+  JMP NXT%
+
 .comma%
   TYA : PHA
-  LDA here% + 8
+  LDA here% + PARAMS
   STA temp%
-  LDA here% + 9
+  LDA here% + PARAMS + 1
   STA temp% + 1
 
-  DEX
-  LDA sp%, X
+  LDA arg%
   LDY #0
   STA (temp%), Y
-  LDA sp% + 256, X
+  LDA arg% + 1
   INY
   STA (temp%), Y
 
   LDA #2
   CLC
-  ADC here% + 8
-  STA here% + 8
+  ADC here% + PARAMS
+  STA here% + PARAMS
   LDA #0
-  ADC here% + 9
-  STA here% + 9
+  ADC here% + PARAMS + 1
+  STA here% + PARAMS + 1
 
   PLA : TAY
   RTS
 
 .compile%
   LDY #0
-LDA (stdin%), Y
-JSR &FFE3
   LDA (stdin%), Y
   BEQ compile_done%
 
@@ -116,8 +104,6 @@ JSR &FFE3
   LDA sp% + 255, X
   BNE compile_word%
 
-  LDA #ASC "N"
-  JSR &FFE3
   DEX ; discard not found
 
   LDA stdin% ; compile LIT
@@ -133,36 +119,55 @@ JSR &FFE3
   STA stdin% + 1
   PLA
   STA stdin%
+  DEX
   LDA #CODEWORD
   CLC
-  ADC sp% - 1, X
-  STA sp% - 1, X
+  ADC sp%, X
+  STA arg%
   LDA #0
-  ADC sp% + 255, X
-  STA sp% + 255, X
+  ADC sp% + 256, X
+  STA arg% + 1
   JSR comma%
 
   JSR NUMBER% ; compile number
+  DEX
+  LDA sp%, X
+  STA arg%
+  LDA sp% + 256, X
+  STA arg% + 1
   JSR comma%
   JSR word% ; skip number
   JMP compile%
 
 .compile_word%
-  LDA #ASC "W"
-  JSR &FFE3
+  DEX
   LDA #CODEWORD
   CLC
-  ADC sp% - 1, X
-  STA sp% - 1, X
+  ADC sp%, X
+  STA arg%
   LDA #0
-  ADC sp% + 255, X
-  STA sp% + 255, X
+  ADC sp% + 256, X
+  STA arg% + 1
   JSR comma%
   JSR word%
   JMP compile%
 
 .compile_done%
   JMP NXT%
+
+.create%
+  LDA latest% + PARAMS ; LATEST @
+  STA arg%
+  LDA latest% + PARAMS + 1
+  STA arg% + 1
+  INX
+
+  LDA here% + PARAMS ; HERE @ LATEST !
+  STA latest% + PARAMS
+  LDA here% + PARAMS + 1
+  STA latest% + PARAMS + 1
+
+  JMP comma% ; link
 
 .DOCOL%
   LDA ip%
@@ -180,9 +185,15 @@ JSR &FFE3
 
   JMP NXT%
 
+.DUP%
+  LDA sp% - 1, X
+  STA sp%, X
+  LDA sp% + 255, X
+  STA sp% + 256, X
+  INX
+  JMP NXT%
+
 .EXIT%
-  LDA #ASC "X"
-  JSR &FFE3
   PLA
   STA ip% + 1
   PLA
@@ -379,16 +390,17 @@ JSR &FFE3
   RTS
 
 
-
 .core%
-.Lit%
-  EQUS "LIT " : EQUW LIT%
-  EQUS "+ " : EQUW plus%
-  EQUS "EXIT " : EQUW EXIT%
-  EQUB 0
+  EQUB 2
+.Lit%      EQUS "LIT "  : EQUW LIT%
+  EQUB 0 : EQUS "+ "    : EQUW plus%
+  EQUB 0 : EQUS "EXIT " : EQUW EXIT%
+  EQUB 0 : EQUS "DUP "  : EQUW DUP%
+  EQUB 1 : EQUS ": "    : EQUW COLON%
+  EQUB &80
 
 .colin%
-  EQUS "3 4 + EXIT " : EQUB 0
+  EQUS ": DOUBLE DUP + EXIT ; 4 DOUBLE EXIT " : EQUB 0
 
 .Here%
   EQUS "HERE "
@@ -429,9 +441,9 @@ PRINT "compiled " ;~compiled%
 ptr% = !compiled% AND &FFFF
 PRINT "ptr " ;~ptr%
 PRINT "codeword " ;~(!ptr% AND &FFFF)
-PRINT "LIT " ;~LIT%
+PRINT "EXIT " ;~EXIT%
 
-PRINT ~indirect%?1;~indirect%?0
+PRINT ~(!indirect% AND &FFFF)
 r% = USR(DOCOL%)
 PRINT ""
 PRINT "docol " ;~r%
