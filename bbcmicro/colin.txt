@@ -65,29 +65,6 @@ P% = code%
 .boot_end%
   RTS
 
-.COLON%
-  JSR create%
-
-  LDA #0
-  STA arg%
-  STA arg% + 1
-  JSR comma% ; flags
-
-  LDA stdin%
-  STA arg%
-  LDA stdin% + 1
-  STA arg% + 1
-  JSR comma% ; name
-  JSR word%
-
-  LDA #DOCOL% AND &FF
-  STA arg%
-  LDA #(DOCOL% / 256) AND &FF
-  STA arg% + 1
-  JSR comma% ; codeword
-
-  JMP NXT%
-
 .comma%
   TYA : PHA
   LDA here% + PARAMS
@@ -210,6 +187,8 @@ P% = code%
 
   JMP comma% ; link
 
+.Hex%
+  EQUS "0123456789ABCDEF"
 .dumpAddress%
   LDA #ASC "&"
   JSR &FFE3
@@ -240,37 +219,6 @@ P% = code%
 
   LDA #ASC " "
   JMP &FFE3
-
-.DOCOL%
-  LDA ip%
-  PHA
-  LDA ip% + 1
-  PHA
-
-  LDA #2
-  CLC
-  ADC indirect% ; corrupts indirect, which is oke because NEXT does as well
-  STA ip%
-  LDA #0
-  ADC indirect% + 1
-  STA ip% + 1
-
-  JMP NXT%
-
-.DUP%
-  LDA sp% - 1, X
-  STA sp%, X
-  LDA sp% + 255, X
-  STA sp% + 256, X
-  INX
-  JMP NXT%
-
-.EXIT%
-  PLA
-  STA ip% + 1
-  PLA
-  STA ip%
-  JMP NXT%
 
 .find%
   TYA : PHA
@@ -325,28 +273,6 @@ P% = code%
   STA arg%
   JMP find_loop%
 
-.Hex%
-  EQUS "0123456789ABCDEF"
-
-.LIT%
-  LDY #0
-  LDA (ip%), Y
-  STA sp%, X
-  INY
-  LDA (ip%), Y
-  STA sp% + 256, X
-  INX
-
-  LDA #2
-  CLC
-  ADC ip%
-  STA ip%
-  LDA #0
-  ADC ip% + 1
-  STA ip% + 1
-
-  JMP NXT%
-
 .NUMBER%
   TYA : PHA
   LDA #0
@@ -388,6 +314,99 @@ P% = code%
   PLA : TAY
   RTS
 
+.word%
+  TYA : PHA
+  LDY #0
+.word_loop%
+  LDA (stdin%), Y
+  INY
+  CMP #33
+  BCS word_loop%
+
+  TYA
+  CLC
+  ADC stdin%
+  STA stdin%
+  LDA #0
+  ADC stdin% + 1
+  STA stdin% + 1
+
+  PLA : TAY
+  RTS
+
+.COLON%
+  JSR create%
+
+  LDA #0
+  STA arg%
+  STA arg% + 1
+  JSR comma% ; flags
+
+  LDA stdin%
+  STA arg%
+  LDA stdin% + 1
+  STA arg% + 1
+  JSR comma% ; name
+  JSR word%
+
+  LDA #DOCOL% AND &FF
+  STA arg%
+  LDA #(DOCOL% / 256) AND &FF
+  STA arg% + 1
+  JSR comma% ; codeword
+
+  JMP NXT%
+
+.DOCOL%
+  LDA ip%
+  PHA
+  LDA ip% + 1
+  PHA
+
+  LDA #2
+  CLC
+  ADC indirect% ; corrupts indirect, which is oke because NEXT does as well
+  STA ip%
+  LDA #0
+  ADC indirect% + 1
+  STA ip% + 1
+
+  JMP NXT%
+
+.DUP%
+  LDA sp% - 1, X
+  STA sp%, X
+  LDA sp% + 255, X
+  STA sp% + 256, X
+  INX
+  JMP NXT%
+
+.EXIT%
+  PLA
+  STA ip% + 1
+  PLA
+  STA ip%
+  JMP NXT%
+
+.LIT%
+  LDY #0
+  LDA (ip%), Y
+  STA sp%, X
+  INY
+  LDA (ip%), Y
+  STA sp% + 256, X
+  INX
+
+  LDA #2
+  CLC
+  ADC ip%
+  STA ip%
+  LDA #0
+  ADC ip% + 1
+  STA ip% + 1
+
+  JMP NXT%
+
 .NXT%
   LDA #0
   CMP ip%
@@ -420,7 +439,7 @@ P% = code%
 
   JMP (temp%)
 
-.plus%
+.PLUS%
   DEX
   LDA sp%, X
   STA temp%
@@ -447,7 +466,7 @@ P% = code%
   JMP NXT%
 
 
-.variable%
+.VARIABLE%
   LDA indirect%
   CLC
   ADC #2 ; advance to param
@@ -458,31 +477,11 @@ P% = code%
   INX
   JMP NXT%
 
-.word%
-  TYA : PHA
-  LDY #0
-.word_loop%
-  LDA (stdin%), Y
-  INY
-  CMP #33
-  BCS word_loop%
-
-  TYA
-  CLC
-  ADC stdin%
-  STA stdin%
-  LDA #0
-  ADC stdin% + 1
-  STA stdin% + 1
-
-  PLA : TAY
-  RTS
-
 
 .core%
   EQUB 2
 .Lit%      EQUS "LIT "  : EQUW LIT%
-  EQUB 0 : EQUS "+ "    : EQUW plus%
+  EQUB 0 : EQUS "+ "    : EQUW PLUS%
   EQUB 0 : EQUS "EXIT " : EQUW EXIT%
   EQUB 0 : EQUS "DUP "  : EQUW DUP%
   EQUB 1 : EQUS ": "    : EQUW COLON%
@@ -501,14 +500,14 @@ P% = code%
   EQUW 0 ; link
   EQUW 0 ; flags 1=immediate
   EQUW Here% ; name
-  EQUW variable% ; codeword
+  EQUW VARIABLE% ; codeword
   EQUW latest% + 10 ; params
 
 .latest%
   EQUW here%
   EQUW 0
   EQUW Latest%
-  EQUW variable%
+  EQUW VARIABLE%
   EQUW latest%
 ]:NEXT
 PRINT "Assembled " ;P% - code% " bytes"
