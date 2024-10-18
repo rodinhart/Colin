@@ -65,9 +65,13 @@ P% = code%
 .boot_end%
   RTS
 
+.DOCOLX%
+  LDA #ASC "*"
+  JSR &FFE3
+  JMP NXT%
+  
+
 .COLON%
-LDA #ASC "C"
-JSR &FFE3
   JSR create%
 
   LDA #0
@@ -203,8 +207,6 @@ JSR &FFE3
   LDA (temp%), Y
   STA indirect% + 1
   JSR compile_jump%
-LDA #ASC "R"
-JSR &FFE3
   JMP compile%
 .compile_jump%
   JMP (indirect%)
@@ -214,7 +216,6 @@ JSR &FFE3
   STA arg%
   LDA latest% + PARAMS + 1
   STA arg% + 1
-  INX
 
   LDA here% + PARAMS ; HERE @ LATEST !
   STA latest% + PARAMS
@@ -223,7 +224,39 @@ JSR &FFE3
 
   JMP comma% ; link
 
+.dumpAddress%
+  LDA #ASC "&"
+  JSR &FFE3
+
+  LDA temp% + 1
+  LSR A : LSR A : LSR A : LSR A
+  TAY
+  LDA Hex%, Y
+  JSR &FFE3
+
+  LDA temp% + 1
+  AND #&F
+  TAY
+  LDA Hex%, Y
+  JSR &FFE3
+
+  LDA temp%
+  LSR A : LSR A : LSR A : LSR A
+  TAY
+  LDA Hex%, Y
+  JSR &FFE3
+
+  LDA temp%
+  AND #&F
+  TAY
+  LDA Hex%, Y
+  JSR &FFE3
+
+  LDA #ASC " "
+  JMP &FFE3
+
 .DOCOL%
+LDA #ASC "D" : JSR &FFE3
   LDA ip%
   PHA
   LDA ip% + 1
@@ -248,8 +281,6 @@ JSR &FFE3
   JMP NXT%
 
 .EXIT%
-LDA #ASC "X"
-JSR &FFE3
   PLA
   STA ip% + 1
   PLA
@@ -308,6 +339,9 @@ JSR &FFE3
   PLA
   STA arg%
   JMP find_loop%
+
+.Hex%
+  EQUS "0123456789ABCDEF"
 
 .LIT%
   LDY #0
@@ -370,8 +404,6 @@ JSR &FFE3
   RTS
 
 .NXT%
-LDA #ASC "N"
-JSR &FFE3
   LDA #0
   CMP ip%
   BNE next_continue%
@@ -379,18 +411,11 @@ JSR &FFE3
   BNE next_continue%
   RTS
 .next_continue%
-  LDY #0
+  LDY #0 ; load pointer to codeword
   LDA (ip%), Y
-  STA temp%
-  INY
-  LDA (ip%), Y
-  STA temp% + 1
-
-  LDY #0
-  LDA (temp%), Y
   STA indirect%
   INY
-  LDA (temp%), Y
+  LDA (ip%), Y
   STA indirect% + 1
 
   LDA #2
@@ -401,7 +426,14 @@ JSR &FFE3
   ADC ip% + 1
   STA ip% + 1
 
-  JMP (indirect%)
+  LDY #0
+  LDA (indirect%), Y
+  STA temp%
+  INY
+  LDA (indirect%), Y
+  STA temp% + 1
+
+  JMP (temp%)
 
 .plus%
   DEX
@@ -416,8 +448,6 @@ JSR &FFE3
   JMP NXT%
 
 .SEMICOLON%
-LDA #ASC "S"
-JSR &FFE3
   LDA here% + PARAMS
   STA indirect%
   LDA here% + PARAMS + 1
@@ -463,6 +493,11 @@ JSR &FFE3
   PLA : TAY
   RTS
 
+.PING%
+  LDA #ASC "£"
+  JSR &FFE3
+  JMP NXT%
+
 
 .core%
   EQUB 2
@@ -472,10 +507,11 @@ JSR &FFE3
   EQUB 0 : EQUS "DUP "  : EQUW DUP%
   EQUB 1 : EQUS ": "    : EQUW COLON%
   EQUB 1 : EQUS "; "    : EQUW SEMICOLON%
+  EQUB 0 : EQUS "PING " : EQUW PING%
   EQUB &80
 
 .colin%
-  EQUS ": DOUBLE EXIT ; DOUBLE EXIT " : EQUB 0
+  EQUS ": RODIN PING EXIT ; RODIN EXIT " : EQUB 0
   EQUS ": DOUBLE DUP + EXIT ; 4 DOUBLE EXIT " : EQUB 0
 
 .Here%
@@ -504,9 +540,9 @@ X% = 0
 CALL boot%
 
 compiled% = !(here% + PARAMS) AND &FFFF
+PRINT "Compiling to " ;~compiled%
 indirect%?0 = compiled% - 2
 indirect%?1 = (compiled% - 2) / 256
-PRINT "Compiling to " ;~(!indirect% AND &FFFF)
 
 stdin%?0 = colin%
 stdin%?1 = colin% / 256
@@ -515,7 +551,20 @@ PRINT ""
 PRINT "Result of compile " ;~r%
 end% = !(here% + PARAMS) AND &FFFF
 PRINT "Compiled " ;end% - compiled% " bytes"
-PRINT "Executable at " ;~(!indirect% AND &FFFF)
+a% = (!indirect% AND &FFFF) + 2
+PRINT "Executable at " ;~a%
+
+codeword% = !a% AND &FFFF
+PRINT "First codeword " ;~codeword%
+b% = !codeword% AND &FFFF
+PRINT "Routine " ;~b%
+PRINT "DOCOL " ;~DOCOL%
+PRINT "EXIT " ;~EXIT%
+PRINT "PING " ;~PING%
+c% = !(codeword% + 2) AND &FFFF
+PRINT "First RODIN codeword " ;~c%
+d% = !c% AND &FFFF
+PRINT "RODIN routine " ~d%
 PRINT "---"
 
 ip%?0 = 0 : ip%?1 = 0
