@@ -435,14 +435,14 @@ P% = code%
 
 .PLUS%
   DEX
-  LDA sp%, X
-  STA temp%
-  DEX
-  LDA sp%, X
   CLC
-  ADC temp%
-  STA sp%, X
-  INX
+  LDA sp% - 1, X
+  ADC sp%, X
+  STA sp% - 1, X
+
+  LDA sp% + 255, X
+  ADC sp% + 256, X
+  STA sp% + 255, X
   JMP NXT%
 
 .SEMICOLON%
@@ -450,6 +450,7 @@ P% = code%
   STA indirect%
   LDA here% + PARAMS + 1
   STA indirect% + 1
+
   LDA indirect%
   SEC
   SBC #2
@@ -461,12 +462,12 @@ P% = code%
 
 
 .VARIABLE%
-  LDA indirect%
+  LDA #2 ; advance to params and push on stack
   CLC
-  ADC #2 ; advance to param
+  ADC indirect%
   STA sp%, X
-  LDA indirect% + 1
-  ADC #0
+  LDA #0
+  ADC indirect% + 1
   STA sp% + 256, X
   INX
   JMP NXT%
@@ -483,7 +484,7 @@ P% = code%
   EQUB &80
 
 .colin%
-  EQUS ": DOUBLE DUP + EXIT ; 4 DOUBLE EXIT " : EQUB 0
+  EQUS ": DOUBLE DUP + EXIT ; 150 DOUBLE EXIT " : EQUB 0
 
 .Here%
   EQUS "HERE "
@@ -528,4 +529,4 @@ ip%?0 = 0 : ip%?1 = 0
 r% = USR(DOCOL%)
 PRINT ""
 PRINT "Execution " ;~r%
-PRINT sp%?0
+PRINT sp%?0 + 256 * sp%?256
