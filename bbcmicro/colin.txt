@@ -65,12 +65,6 @@ P% = code%
 .boot_end%
   RTS
 
-.DOCOLX%
-  LDA #ASC "*"
-  JSR &FFE3
-  JMP NXT%
-  
-
 .COLON%
   JSR create%
 
@@ -126,7 +120,6 @@ P% = code%
   RTS
 
 .compile_continue%
-JSR &FFE3 ; print first char in stdin
   JSR find%
   LDA sp% - 1, X ; peek
   BNE compile_word%
@@ -158,8 +151,6 @@ JSR &FFE3 ; print first char in stdin
   STA arg% + 1
   JSR comma%
 
-LDA #ASC "n"
-JSR &FFE3
   JSR NUMBER% ; compile number
   DEX
   LDA sp%, X
@@ -171,8 +162,6 @@ JSR &FFE3
   JMP compile%
 
 .compile_word%
-LDA #ASC "w"
-JSR &FFE3
   DEX
   LDA sp%, X
   STA temp%
@@ -181,7 +170,6 @@ JSR &FFE3
 
   LDY #FLAGS
   LDA (temp%), Y
-CLC : ADC #48 : JSR &FFE3 : LDA (temp%), Y
   CMP #1
   BEQ compile_immediate%
 
@@ -198,8 +186,6 @@ CLC : ADC #48 : JSR &FFE3 : LDA (temp%), Y
 
 .compile_immediate%
   JSR word%
-LDA #ASC "i"
-JSR &FFE3
   LDY #CODEWORD
   LDA (temp%), Y
   STA indirect%
@@ -256,7 +242,6 @@ JSR &FFE3
   JMP &FFE3
 
 .DOCOL%
-LDA #ASC "D" : JSR &FFE3
   LDA ip%
   PHA
   LDA ip% + 1
@@ -493,11 +478,6 @@ LDA #ASC "D" : JSR &FFE3
   PLA : TAY
   RTS
 
-.PING%
-  LDA #ASC "£"
-  JSR &FFE3
-  JMP NXT%
-
 
 .core%
   EQUB 2
@@ -507,11 +487,9 @@ LDA #ASC "D" : JSR &FFE3
   EQUB 0 : EQUS "DUP "  : EQUW DUP%
   EQUB 1 : EQUS ": "    : EQUW COLON%
   EQUB 1 : EQUS "; "    : EQUW SEMICOLON%
-  EQUB 0 : EQUS "PING " : EQUW PING%
   EQUB &80
 
 .colin%
-  EQUS ": RODIN PING EXIT ; RODIN EXIT " : EQUB 0
   EQUS ": DOUBLE DUP + EXIT ; 4 DOUBLE EXIT " : EQUB 0
 
 .Here%
@@ -551,20 +529,6 @@ PRINT ""
 PRINT "Result of compile " ;~r%
 end% = !(here% + PARAMS) AND &FFFF
 PRINT "Compiled " ;end% - compiled% " bytes"
-a% = (!indirect% AND &FFFF) + 2
-PRINT "Executable at " ;~a%
-
-codeword% = !a% AND &FFFF
-PRINT "First codeword " ;~codeword%
-b% = !codeword% AND &FFFF
-PRINT "Routine " ;~b%
-PRINT "DOCOL " ;~DOCOL%
-PRINT "EXIT " ;~EXIT%
-PRINT "PING " ;~PING%
-c% = !(codeword% + 2) AND &FFFF
-PRINT "First RODIN codeword " ;~c%
-d% = !c% AND &FFFF
-PRINT "RODIN routine " ~d%
 PRINT "---"
 
 ip%?0 = 0 : ip%?1 = 0
