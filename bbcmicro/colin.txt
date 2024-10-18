@@ -128,12 +128,7 @@ P% = code%
   STA arg% + 1
   JSR comma%
 
-  JSR NUMBER% ; compile number
-  DEX
-  LDA sp%, X
-  STA arg%
-  LDA sp% + 256, X
-  STA arg% + 1
+  JSR number% ; compile number
   JSR comma%
   JSR word% ; skip number
   JMP compile%
@@ -273,44 +268,43 @@ P% = code%
   STA arg%
   JMP find_loop%
 
-.NUMBER%
+.number%
   TYA : PHA
   LDA #0
-  STA sp%, X
-  STA sp% + 256, X
+  STA arg%
+  STA arg% + 1
   LDY #0
 .number_loop%
-  LDA sp%, X ; times 2
+  LDA arg% ; times 2
   ASL A
   STA temp%
-  LDA sp% + 256, X
+  LDA arg% + 1
   ROL A
   STA temp% + 1
   ASL temp% ; times 4
   ROL temp% + 1
   LDA temp% ; times 5
   CLC
-  ADC sp%, X
-  STA sp%, X
+  ADC arg%
+  STA arg%
   LDA temp% + 1
-  ADC sp% + 256, X
-  STA sp% + 256, X
-  ASL sp%, X ; times 10
-  ROL sp% + 256, X
+  ADC arg% + 1
+  STA arg% + 1
+  ASL arg% ; times 10
+  ROL arg% + 1, X
 
   LDA (stdin%), Y
   SEC
   SBC #ASC "0"
   CLC
-  ADC sp%, X
-  STA sp%, X
+  ADC arg%
+  STA arg%
 
   INY
   LDA (stdin%), Y
   CMP #33
   BCS number_loop%
 
-  INX
   PLA : TAY
   RTS
 
