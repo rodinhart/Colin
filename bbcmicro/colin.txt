@@ -36,7 +36,7 @@ P% = code%
 
   LDA #core% AND &FF
   STA arg%
-  LDA #(core% / 256) AND &FF
+  LDA #(core% DIV 256) AND &FF
   STA arg% + 1
   TYA
   CLC
@@ -111,7 +111,7 @@ P% = code%
   PHA
   LDA #Lit% AND &FF
   STA stdin%
-  LDA #(Lit% / 256) AND &FF
+  LDA #(Lit% DIV 256) AND &FF
   STA stdin% + 1
   JSR find%
   PLA
@@ -345,7 +345,7 @@ P% = code%
 
   LDA #DOCOL% AND &FF
   STA arg%
-  LDA #(DOCOL% / 256) AND &FF
+  LDA #(DOCOL% DIV 256) AND &FF
   STA arg% + 1
   JSR comma% ; codeword
 
@@ -514,10 +514,10 @@ CALL boot%
 compiled% = !(here% + PARAMS) AND &FFFF
 PRINT "Compiling to " ;~compiled%
 indirect%?0 = compiled% - 2
-indirect%?1 = (compiled% - 2) / 256
+indirect%?1 = (compiled% - 2) DIV 256
 
 stdin%?0 = colin%
-stdin%?1 = colin% / 256
+stdin%?1 = colin% DIV 256
 r% = USR(compile%)
 PRINT ""
 PRINT "Result of compile " ;~r%
