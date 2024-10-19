@@ -91,12 +91,10 @@ P% = code%
 
 .compile_continue%
   JSR find%
-  LDA sp% - 1, X ; peek
+  LDA arg%
   BNE compile_word%
-  LDA sp% + 255, X
+  LDA arg% + 1
   BNE compile_word%
-
-  DEX ; discard not found
 
   LDA #(lit% + CODEWORD) AND &FF
   STA arg%
@@ -110,23 +108,17 @@ P% = code%
   JMP compile%
 
 .compile_word%
-  DEX
-  LDA sp%, X
-  STA temp%
-  LDA sp% + 256
-  STA temp% + 1
-
   LDY #FLAGS
-  LDA (temp%), Y
+  LDA (arg%), Y
   CMP #1
   BEQ compile_immediate%
 
   LDA #CODEWORD
   CLC
-  ADC temp%
+  ADC arg%
   STA arg%
   LDA #0
-  ADC temp% + 1
+  ADC arg% + 1
   STA arg% + 1
   JSR comma%
   JSR word%
@@ -135,10 +127,10 @@ P% = code%
 .compile_immediate%
   JSR word%
   LDY #CODEWORD
-  LDA (temp%), Y
+  LDA (arg%), Y
   STA indirect%
   INY
-  LDA (temp%), Y
+  LDA (arg%), Y
   STA indirect% + 1
   JSR compile_jump%
   JMP compile%
@@ -202,10 +194,6 @@ P% = code%
   BNE find_continue%
   LDA arg% + 1
   BNE find_continue%
-
-  STA sp%, X ; end of linked list
-  STA sp% + 256, X
-  INX
   PLA : TAY
   RTS
 
@@ -225,12 +213,7 @@ P% = code%
   CMP #33
   BCS find_compare%
 
-  LDA arg% ; found
-  STA sp%, X
-  LDA arg% + 1
-  STA sp% + 256, X
-  INX
-  PLA : TAY
+  PLA : TAY ; found
   RTS
 
 .find_next% 
