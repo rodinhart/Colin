@@ -105,26 +105,9 @@ P% = code%
 
   DEX ; discard not found
 
-  LDA stdin% ; compile LIT
-  PHA
-  LDA stdin% + 1
-  PHA
-  LDA #Lit% AND &FF
-  STA stdin%
-  LDA #(Lit% DIV 256) AND &FF
-  STA stdin% + 1
-  JSR find%
-  PLA
-  STA stdin% + 1
-  PLA
-  STA stdin%
-  DEX
-  LDA #CODEWORD
-  CLC
-  ADC sp%, X
+  LDA #(lit% + CODEWORD) AND &FF
   STA arg%
-  LDA #0
-  ADC sp% + 256, X
+  LDA #(lit% + CODEWORD) DIV 256
   STA arg% + 1
   JSR comma%
 
@@ -167,7 +150,7 @@ P% = code%
   JSR compile_jump%
   JMP compile%
 .compile_jump%
-  JMP (indirect%)
+  JMP (indirect%) ; indirect contains pointer to routine, but should contain pointer to codeword
 
 .create%
   LDA latest% + PARAMS ; LATEST @
@@ -447,15 +430,10 @@ P% = code%
 
 .SEMICOLON%
   LDA here% + PARAMS
-  STA indirect%
-  LDA here% + PARAMS + 1
-  STA indirect% + 1
-
-  LDA indirect%
   SEC
   SBC #2
   STA indirect%
-  LDA indirect% + 1
+  LDA here% + PARAMS + 1
   SBC #0
   STA indirect% + 1
   JMP NXT%
@@ -474,8 +452,6 @@ P% = code%
 
 
 .core%
-  EQUB 2
-.Lit%      EQUS "LIT "  : EQUW LIT%
   EQUB 0 : EQUS "+ "    : EQUW PLUS%
   EQUB 0 : EQUS "EXIT " : EQUW EXIT%
   EQUB 0 : EQUS "DUP "  : EQUW DUP%
@@ -484,26 +460,36 @@ P% = code%
   EQUB &80
 
 .colin%
-  EQUS ": DOUBLE DUP + EXIT ; 150 DOUBLE EXIT " : EQUB 0
+  EQUS ": DOUBLE DUP + EXIT ; "
+  EQUS "150 DOUBLE EXIT " : EQUB 0
 
 .Here%
   EQUS "HERE "
 .Latest%
   EQUS "LATEST "
+.Lit%
+  EQUS "LIT "
 
-.here%
-  EQUW 0 ; link
-  EQUW 0 ; flags 1=immediate
-  EQUW Here% ; name
-  EQUW VARIABLE% ; codeword
-  EQUW latest% + 10 ; params
+.lit%
+  EQUW 0
+  EQUW 2
+  EQUW Lit%
+  EQUW LIT%
 
 .latest%
-  EQUW here%
+  EQUW lit%
   EQUW 0
   EQUW Latest%
   EQUW VARIABLE%
-  EQUW latest%
+  EQUW here%
+
+.here%
+  EQUW latest% ; link
+  EQUW 0 ; flags 1=immediate 2=hidden
+  EQUW Here% ; name
+  EQUW VARIABLE% ; codeword
+  EQUW here% + 10 ; params
+
 ]:NEXT
 PRINT "Assembled " ;P% - code% " bytes"
 PRINT "---"
