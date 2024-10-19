@@ -34,16 +34,12 @@ P% = code%
   STA arg% + 1
   JSR comma% ; flags
 
-  LDA #core% AND &FF
-  STA arg%
-  LDA #(core% DIV 256) AND &FF
-  STA arg% + 1
   TYA
   CLC
-  ADC arg%
+  ADC #core% AND &FF
   STA arg%
   LDA #0
-  ADC arg% + 1
+  ADC #core% DIV 256
   STA arg% + 1
   JSR comma% ; word
 
@@ -69,8 +65,13 @@ P% = code%
   TYA : PHA
   LDA here% + PARAMS
   STA temp%
+  CLC
+  ADC #2
+  STA here% + PARAMS
   LDA here% + PARAMS + 1
   STA temp% + 1
+  ADC #0
+  STA here% + PARAMS + 1
 
   LDA arg%
   LDY #0
@@ -78,14 +79,6 @@ P% = code%
   LDA arg% + 1
   INY
   STA (temp%), Y
-
-  LDA #2
-  CLC
-  ADC here% + PARAMS
-  STA here% + PARAMS
-  LDA #0
-  ADC here% + PARAMS + 1
-  STA here% + PARAMS + 1
 
   PLA : TAY
   RTS
