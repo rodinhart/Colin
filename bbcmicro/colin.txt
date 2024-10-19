@@ -126,24 +126,34 @@ P% = code%
 
 .compile_immediate%
   JSR word%
-  LDY #CODEWORD
-  LDA (arg%), Y
+
+  LDA arg%
+  CLC
+  ADC #CODEWORD
   STA indirect%
-  INY
-  LDA (arg%), Y
+  LDA arg% + 1
+  ADC #0
   STA indirect% + 1
+
+  LDY #0
+  LDA (indirect%), Y
+  STA temp%
+  INY
+  LDA (indirect%), Y
+  STA temp% + 1
+
   JSR compile_jump%
   JMP compile%
 .compile_jump%
-  JMP (indirect%) ; indirect contains pointer to routine, but should contain pointer to codeword
+  JMP (temp%)
 
 .create%
-  LDA latest% + PARAMS ; LATEST @
+  LDA latest% + PARAMS
   STA arg%
   LDA latest% + PARAMS + 1
   STA arg% + 1
 
-  LDA here% + PARAMS ; HERE @ LATEST !
+  LDA here% + PARAMS
   STA latest% + PARAMS
   LDA here% + PARAMS + 1
   STA latest% + PARAMS + 1
