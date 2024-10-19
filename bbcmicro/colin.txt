@@ -351,6 +351,20 @@ P% = code%
   STA ip%
   JMP NXT%
 
+.IMMEDIATE%
+  LDA here% + PARAMS
+  SEC
+  SBC #6
+  STA temp%
+  LDA here% + PARAMS + 1
+  SBC #0
+  STA temp% + 1
+  LDY #0
+  LDA (temp%), Y
+  ORA #1
+  STA (temp%), Y
+  JMP NXT%
+
 .LIT%
   LDY #0
   LDA (ip%), Y
@@ -402,6 +416,11 @@ P% = code%
 
   JMP (temp%)
 
+.PING%
+  LDA #ASC "#"
+  JSR &FFE3
+  JMP NXT%
+
 .PLUS%
   DEX
   CLC
@@ -424,7 +443,6 @@ P% = code%
   STA indirect% + 1
   JMP NXT%
 
-
 .VARIABLE%
   LDA #2 ; advance to params and push on stack
   CLC
@@ -438,16 +456,19 @@ P% = code%
 
 
 .core%
-  EQUB 0 : EQUS "+ "    : EQUW PLUS%
-  EQUB 0 : EQUS "EXIT " : EQUW EXIT%
-  EQUB 0 : EQUS "DUP "  : EQUW DUP%
-  EQUB 1 : EQUS ": "    : EQUW COLON%
-  EQUB 1 : EQUS "; "    : EQUW SEMICOLON%
+  EQUB 0 : EQUS "+ "         : EQUW PLUS%
+  EQUB 0 : EQUS "EXIT "      : EQUW EXIT%
+  EQUB 0 : EQUS "DUP "       : EQUW DUP%
+  EQUB 1 : EQUS ": "         : EQUW COLON%
+  EQUB 1 : EQUS "; "         : EQUW SEMICOLON%
+  EQUB 1 : EQUS "IMMEDIATE " : EQUW IMMEDIATE%
+  EQUB 0 : EQUS "PING "      : EQUW PING%
   EQUB &80
 
 .colin%
   EQUS ": DOUBLE DUP + EXIT ; "
-  EQUS "150 DOUBLE EXIT " : EQUB 0
+  EQUS ": PONG IMMEDIATE PING EXIT ; "
+  EQUS ": MAIN 150 PONG DOUBLE PING EXIT ; " : EQUB 0
 
 .Here%
   EQUS "HERE "
@@ -455,6 +476,8 @@ P% = code%
   EQUS "LATEST "
 .Lit%
   EQUS "LIT "
+.Main%
+  EQUS "MAIN "
 
 .lit%
   EQUW 0
@@ -485,8 +508,8 @@ CALL boot%
 
 compiled% = !(here% + PARAMS) AND &FFFF
 PRINT "Compiling to " ;~compiled%
-indirect%?0 = compiled% - 2
-indirect%?1 = (compiled% - 2) DIV 256
+
+ip%?0 = 0 : ip%?1 = 0
 
 stdin%?0 = colin%
 stdin%?1 = colin% DIV 256
@@ -497,7 +520,12 @@ end% = !(here% + PARAMS) AND &FFFF
 PRINT "Compiled " ;end% - compiled% " bytes"
 PRINT "---"
 
-ip%?0 = 0 : ip%?1 = 0
+stdin%?0 = Main%
+stdin%?1 = Main% DIV 256
+CALL find%
+main% = (!arg% AND &FFFF) + PARAMS - 2
+indirect%?0 = main%
+indirect%?1 = main% DIV 256
 r% = USR(DOCOL%)
 PRINT ""
 PRINT "Execution " ;~r%
