@@ -1,0 +1,201 @@
+REM routine can be native, like next%
+REM routine can be code for word, like exit%
+REM routine cannot mix native and words, it should provide any native as a word, like compare%
+REM word can be complete defined using other words, like ,
+
+pc = 15 : lr = 14 : sp = 13 : ds = 12 : ip = 11 : en = 10 : in = 9
+LINK% = 0 : NAME% = 4 : FLAGS% = 8 : CODEWORD% = 12 : PARAMS% = 16
+
+DIM code% 1023
+DIM datastack% 1023
+FOR p% = 0 TO 2 STEP 2
+P% = code%
+[OPT p%
+.docol%
+ stmfd (sp)!, { ip }
+ add ip, en, #PARAMS%
+.next%
+ ldr en, [ip], #4
+ ldr pc, [en, #CODEWORD%]
+
+.exit%
+ ldmfd (sp)!, { ip }
+ teq ip, #0
+ bne next%
+ mov pc, lr
+
+.dot%
+ ldmea (ds)!, { r0 }
+ adr r1, buf%
+ mov r2, #16
+ swi &28
+ adr r0, buf%
+ mov r1, r2
+ swi &46
+ swi &120
+ b next%
+.buf%
+ DCD 0 : DCD 0 : DCD 0 : DCD 0
+
+.lit%
+ ldr r0, [ip], #4
+ stmea (ds)!, { r0 }
+ b next%
+
+.fetch%
+ ldmea (ds)!, { r0 }
+ ldr r0, [r0]
+ stmea (ds)!, { r0 }
+ b next%
+
+.store%
+ ldmea (ds)!, { r0, r1 }
+ str r0, [r1]
+ b next%
+
+.word%
+ ldrb r0, [in]
+ cmp r0, #32
+ addls in, in, #1
+ bls word%
+ stmea (ds)!, { in }
+.word_skip%
+ ldrb r0, [in]
+ cmp r0, #32
+ addhi in, in, #1
+ bhi word_skip%
+ b next%
+
+.var%
+ add r0, en, #PARAMS%
+ stmea (ds)!, { r0 }
+ b next%
+
+.compare%
+ ldmea (ds)!, { r0, r1 }
+ stmfd (sp)!, { r14 }
+ bl compare_native%
+ ldmfd (sp)!, { r14 }
+ stmea (ds)!, { r0 }
+ b next%
+.compare_native%
+ ldrb r2, [r0], #1
+ ldrb r3, [r1], #1
+ cmp r2, #32
+ cmpls r3, #32
+ movls r0, #0
+ movls pc, lr
+ cmp r2, r3
+ beq compare_native%
+ mvnlo r0, #0
+ movhi r0, #1
+ mov pc, lr
+
+.find%
+ ldmea (ds)!, { r4 }
+ ldr r5, LATEST% + PARAMS%
+ stmfd (sp)!, { r14 }
+.find_loop%
+ teq r5, #0
+ beq find_done%
+ mov r0, r4
+ ldr r1, [r5, #NAME%]
+ bl compare_native%
+ teq r0, #0
+ ldrne r5, [r5, #LINK%]
+ bne find_loop%
+.find_done%
+ ldmfd (sp)!, { r14 }
+ stmea (ds)!, { r5 }
+ b next%
+
+.plus%
+ ldmea (ds)!, { r0, r1 }
+ add r0, r0, r1
+ stmea (ds)!, { r0 }
+ b next%
+
+.s_exit%
+ DCB "EXIT "
+.s_dot%
+ DCB ". "
+.s_lit%
+ DCB "LIT "
+.s_fetch%
+ DCB "@ "
+.s_store%
+ DCB "! "
+.s_word%
+ DCB "WORD "
+.s_latest%
+ DCB "LATEST "
+.s_compare%
+ DCB "COMPARE "
+.s_find%
+ DCB "FIND "
+.s_here%
+ DCB "HERE "
+.s_comma%
+ DCB ", "
+.s_plus%
+ DCB "+ "
+.s_create%
+ DCB "CREATE "
+
+.input%
+ DCB "RODIN "
+
+ ALIGN
+
+.prog
+ DCD CREATE% : DCD EXIT%
+.test
+ adr ds, datastack%
+ mov ip, #0
+ adr en, prog - PARAMS%
+ adr in, input%
+ b docol%
+
+.EXIT%
+ DCD 0 : DCD s_exit% : DCD 0 : DCD exit%
+.DOT%
+ DCD EXIT% : DCD s_dot% : DCD 0 : DCD dot%
+.LIT%
+ DCD DOT% : DCD s_lit% : DCD 0 : DCD lit%
+.FETCH%
+ DCD LIT% : DCD s_fetch% : DCD 0 : DCD fetch%
+.STORE%
+ DCD FETCH% : DCD s_store% : DCD 0 : DCD store%
+.WORD%
+ DCD STORE% : DCD s_word% : DCD 0 : DCD word%
+.LATEST%
+ DCD WORD% : DCD s_latest% : DCD 0 : DCD var% : DCD CREATE%
+.COMPARE%
+ DCD LATEST% : DCD s_compare% : DCD 0 : DCD compare%
+.FIND%
+ DCD COMPARE% : DCD s_find% : DCD 0 : DCD find%
+.HERE%
+ DCD FIND% : DCD s_here% : DCD 0 : DCD var% : DCD end%
+.COMMA%
+ DCD HERE% : DCD s_comma% : DCD 0 : DCD docol%
+ DCD HERE% : DCD FETCH% : DCD STORE%
+ DCD HERE% : DCD FETCH% : DCD LIT% : DCD 4 : DCD PLUS% : DCD HERE% : DCD STORE% : DCD EXIT%
+.PLUS%
+ DCD COMMA% : DCD s_plus% : DCD 0 : DCD plus%
+.CREATE%
+ DCD PLUS% : DCD s_create% : DCD 0 : DCD docol%
+ DCD HERE% : DCD FETCH% : DCD LATEST% : DCD FETCH% : DCD COMMA%  : DCD LATEST% : DCD STORE%
+ DCD WORD% : DCD COMMA% : DCD LIT% : DCD 0 : DCD COMMA% : DCD EXIT%
+
+.end%
+
+] : NEXT
+PRINT HERE%!PARAMS%
+CALL test
+PRINT HERE%!PARAMS%
+PRINT !(HERE%!PARAMS% - 12)
+PRINT CREATE%
+
+REM adr lr, next% : b subroutine% ??
+REM DCD call_native% : DCD subroutine%
+REM implement : first

@@ -320,6 +320,15 @@ P% = code%
 
   JMP NXT%
 
+.COMMA%
+  DEX
+  LDA sp%, X
+  STA arg%
+  LDA sp% + 256, X
+  STA arg% + 1
+  JSR comma%
+  JMP NXT%
+
 .DOCOL%
   LDA ip%
   PHA
@@ -336,6 +345,15 @@ P% = code%
 
   JMP NXT%
 
+.DOT%
+  DEX
+  LDA sp%, X
+  STA temp%
+  LDA sp% + 256, X
+  STA temp% + 1
+  JSR dumpAddress%
+  JMP NXT%
+
 .DUP%
   LDA sp% - 1, X
   STA sp%, X
@@ -349,6 +367,21 @@ P% = code%
   STA ip% + 1
   PLA
   STA ip%
+  JMP NXT%
+
+.FETCH%
+  TYA : PHA
+  LDA sp% - 1, X
+  STA temp%
+  LDA sp% + 255, X
+  STA temp% + 1
+  LDY #0
+  LDA (temp%), Y
+  STA sp% - 1, X
+  INY
+  LDA (temp%), Y
+  STA sp% + 255, X
+  PLA : TAY
   JMP NXT%
 
 .IMMEDIATE%
@@ -433,6 +466,39 @@ P% = code%
   STA sp% + 255, X
   JMP NXT%
 
+.QUOTE%
+  LDA #(lit% + CODEWORD) AND &FF
+  STA arg%
+  LDA #(lit% + CODEWORD) DIV 256
+  STA arg% + 1
+  JSR comma%
+
+  JSR find%
+  LDA #CODEWORD
+  CLC
+  ADC arg%
+  STA arg%
+  LDA #0
+  ADC arg% + 1
+  STA arg% + 1
+
+  JMP NXT%
+
+.STORE%
+  DEX
+  LDA sp%, X
+  STA temp%
+  LDA sp% + 256, X
+  STA temp% + 1
+  DEX
+  LDA sp%, X
+  LDY #0
+  STA (temp%), Y
+  LDA sp% + 256, X
+  INY
+  STA (temp%), Y
+  JMP NXT%
+
 .SEMICOLON%
   LDA here% + PARAMS
   SEC
@@ -441,6 +507,35 @@ P% = code%
   LDA here% + PARAMS + 1
   SBC #0
   STA indirect% + 1
+  JMP NXT%
+
+.SUBTRACT%
+  DEX
+  SEC
+  LDA sp% - 1, X
+  SBC sp%, X
+  STA sp% - 1, X
+
+  LDA sp% + 255, X
+  SBC sp% + 256, X
+  STA sp% + 255, X
+  JMP NXT%
+
+.SWAP%
+  LDA sp% - 1, X
+  PHA
+  LDA sp% - 2, X
+  STA sp% - 1, X
+  PLA
+  STA sp% - 2, X
+
+  LDA sp% + 255, X
+  PHA
+  LDA sp% + 254, X
+  STA sp% + 255, X
+  PLA
+  STA sp% + 254, X
+
   JMP NXT%
 
 .VARIABLE%
@@ -454,6 +549,34 @@ P% = code%
   INX
   JMP NXT%
 
+.ZEROBRANCH%
+  DEX
+  LDA sp%, X
+  BNE zero_branch_no%
+  LDA sp% + 256, X
+  BNE zero_branch_no%
+
+  LDY #1 ; branch
+  LDA (ip%), Y
+  PHA
+  DEY
+  LDA (ip%), Y
+  CLC
+  ADC ip%
+  STA ip%
+  PLA
+  ADC ip% + 1
+  STA ip% + 1
+  JMP NXT%
+.zero_branch_no%
+  LDA #2
+  CLC
+  ADC ip%
+  STA ip%
+  LDA #0
+  ADC ip% + 1
+  STA ip% + 1
+  JMP NXT%
 
 .core%
   EQUB 0 : EQUS "+ "         : EQUW PLUS%
@@ -462,13 +585,21 @@ P% = code%
   EQUB 1 : EQUS ": "         : EQUW COLON%
   EQUB 1 : EQUS "; "         : EQUW SEMICOLON%
   EQUB 1 : EQUS "IMMEDIATE " : EQUW IMMEDIATE%
+  EQUB 0 : EQUS ", "         : EQUW COMMA%
+  EQUB 1 : EQUS "' "         : EQUW QUOTE%
+  EQUB 0 : EQUS "0BRANCH "   : EQUW ZEROBRANCH%
   EQUB 0 : EQUS "PING "      : EQUW PING%
+  EQUB 0 : EQUS "SWAP "      : EQUW SWAP%
+  EQUB 0 : EQUS "- "         : EQUW SUBTRACT%
+  EQUB 0 : EQUS "@ "         : EQUW FETCH%
+  EQUB 0 : EQUS "! "         : EQUW STORE%
+  EQUB 0 : EQUS ". "         : EQUW DOT%
   EQUB &80
 
 .colin%
-  EQUS ": DOUBLE DUP + EXIT ; "
-  EQUS ": PONG IMMEDIATE PING EXIT ; "
-  EQUS ": MAIN 150 PONG DOUBLE PING EXIT ; " : EQUB 0
+  EQUS ": IF IMMEDIATE ' 0BRANCH , HERE @ 2 , EXIT ; "
+  EQUS ": THEN IMMEDIATE DUP HERE @ SWAP - SWAP ! EXIT ; "
+  EQUS ": MAIN 0 IF 10 EXIT ; " : EQUB 0
 
 .Here%
   EQUS "HERE "
@@ -524,9 +655,21 @@ stdin%?0 = Main%
 stdin%?1 = Main% DIV 256
 CALL find%
 main% = (!arg% AND &FFFF) + PARAMS - 2
+
+FOR I% = 2 TO 20 STEP 2
+val% = main%!I% AND &FFFF
+PRINT ;~val% " (";
+name% = !(val% - CODEWORD + NAME) AND &FFFF
+FOR J% = 0 TO 7
+IF name%?J% > 32 AND name%?J% < 128 THEN VDU name%?J% ELSE J% = 1000
+NEXT J%
+PRINT ;")"
+NEXT I%
+END
+
 indirect%?0 = main%
 indirect%?1 = main% DIV 256
 r% = USR(DOCOL%)
 PRINT ""
 PRINT "Execution " ;~r%
-PRINT sp%?0 + 256 * sp%?256
+PRINT (sp%?0 + 256 * sp%?256)

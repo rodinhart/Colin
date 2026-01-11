@@ -1,0 +1,213 @@
+OS_WriteN = &46 : OS_BinaryToDecimal = &28 : OS_WriteI = &100 : OS_ReadUnsigned = &21
+pc = 15 : lr = 14 : sp = 13 : ds = 12 : in = 11 : ip = 10 : en = 9
+LINK% = 0 : NAME% = 4 : CODEWORD% = 8 : FLAGS% = 12 : PARAMS% = 16
+
+DIM code% 1023
+DIM datastack% 1023
+FOR p% = 0 TO 2 STEP 2
+P% = code%
+[OPT p%
+.input% DCB ": DBL DUP + ; : MAIN 13 DBL . ; "
+.input_end%
+.s_latest% DCB "LATEST "
+.s_here% DCB "HERE "
+.s_lit% DCB "LIT "
+.s_dot% DCB ". "
+.s_exit% DCB "EXIT "
+.s_dup% DCB "DUP "
+.s_plus% DCB "+ "
+.s_colon% DCB ": "
+.s_semicolon% DCB "; "
+.s_main% DCB "MAIN "
+ ALIGN
+
+.compile%
+ adr ds, datastack%
+ adr in, input%
+ adr r4, input_end%
+ stmfd (sp)!, { lr }
+.compile_loop%
+ bl word%
+ ldmea (ds)!, { r5 }
+
+ stmea (ds)!, { r5 }
+ bl find%
+
+ ldmea (ds)!, { en }
+ teq en, #0
+ beq compile_int%
+ ldr r0, [en, #FLAGS%]
+ tst r0, #1
+ adrne lr, compile_next%
+ bne run_immediate%
+
+ ldr r1, HERE% + PARAMS%  ; append codeword
+ str en, [r1], #4
+ str r1, HERE% + PARAMS%
+ b compile_next%
+
+.compile_int%
+ mov r0, #10
+ mov r1, r5
+ swi OS_ReadUnsigned
+ ldr r0, HERE% + PARAMS%
+ adr r1, LIT%
+ str r1, [r0], #4
+ str r2, [r0], #4
+ str r0, HERE% + PARAMS%
+
+.compile_next%
+ cmp in, r4
+ blo compile_loop%
+
+ ; find and run MAIN
+ adr r0, s_main%
+ stmea (ds)!, { r0 }
+ bl find%
+ ldmea (ds)!, { en }
+ ldmfd (sp)!, { lr }
+.run_immediate%  ;; resumes at lr
+ str en, run_prog%
+ mov ip, #0
+ adr en, run_prog% - PARAMS%
+ b docol%
+.run_prog%
+ DCD EXIT% : DCD EXIT%
+
+.word%
+ stmea (ds)!, { in }
+.word_loop%
+ ldrb r0, [in], #1
+ cmp r0, #32
+ bhi word_loop%
+.word_ws%
+ ldrb r0, [in]
+ cmp r0, #32
+ addls in, in, #1
+ bls word_ws%
+ mov pc, lr
+
+.find%
+ stmfd (sp)!, { r4, r5, lr }
+ ldmea (ds)!, { r4 }
+ ldr r5, LATEST% + PARAMS%
+.find_loop%
+ teq r5, #0
+ beq find_done%
+ mov r0, r4
+ ldr r1, [r5, #NAME%]
+ stmea (ds)!, { r0, r1 }
+ bl compare%
+ ldmea (ds)!, { r0 }
+ teq r0, #0
+ ldrne r5, [r5, #LINK%]
+ bne find_loop%
+.find_done%
+ stmea (ds)!, { r5 }
+ ldmfd (sp)!, { r4, r5, pc }
+
+.compare%
+ ldmea (ds)!, { r0, r1 }
+.compare_loop%
+ ldrb r2, [r0], #1
+ ldrb r3, [r1], #1
+ cmp r2, #32
+ cmpls r3, #32
+ movls r0, #0
+ bls compare_end%
+ cmp r2, r3
+ beq compare_loop%
+ mvnlo r0, #0
+ movhi r0, #1
+.compare_end%
+ stmea (ds)!, { r0 }
+ mov pc, lr
+
+.colon%
+ stmfd (sp)!, { lr }
+ bl word%
+ ldmfd (sp)!, { lr }
+ ldr r1, HERE% + PARAMS%
+ ldr r0, LATEST% + PARAMS%
+ str r1, LATEST% + PARAMS%
+ str r0, [r1], #4
+ ldmea (ds)!, { r0 }
+ str r0, [r1], #4
+ adr r0, docol%
+ str r0, [r1], #4
+ mov r0, #0
+ str r0, [r1], #4
+ str r1, HERE% + PARAMS%
+ b next%
+
+.semicolon%
+ adr r0, EXIT%
+ ldr r1, HERE% + PARAMS%
+ str r0, [r1], #4
+ str r1, HERE% + PARAMS%
+ b next%
+
+.docol%
+ stmfd (sp)!, { ip }
+ add ip, en, #PARAMS%
+.next%
+ ldr en, [ip], #4
+ ldr pc, [en, #CODEWORD%]
+
+.exit%
+ ldmfd (sp)!, { ip }
+ teq ip, #0
+ bne next%
+ mov pc, lr
+
+.lit%
+ ldr r0, [ip], #4
+ stmea (ds)!, { r0 }
+ b next%
+
+.dot%
+ ldmea (ds)!, { r0 }
+ adr r1, buf%
+ mov r2, #16
+ swi OS_BinaryToDecimal
+ adr r0, buf%
+ mov r1, r2
+ swi OS_WriteN
+ swi OS_WriteI + 32
+ b next%
+.buf%
+ DCD 0 : DCD 0 : DCD 0 : DCD 0
+
+.dup%
+ ldmea (ds)!, { r0 }
+ stmea (ds)!, { r0 }
+ stmea (ds)!, { r0 }
+ b next%
+
+.plus%
+ ldmea (ds)!, { r0, r1 }
+ add r0, r0, r1
+ stmea (ds)!, { r0 }
+ b next%
+
+.LATEST%
+ DCD HERE% : DCD s_latest% : DCD -1 : DCD 0 : DCD LATEST%
+.HERE%
+ DCD EXIT% : DCD s_here% : DCD -1 : DCD 0 : DCD end%
+.EXIT%
+ DCD LIT% : DCD s_exit% : DCD exit% : DCD 2
+.LIT%
+ DCD DOT% : DCD s_lit% : DCD lit% : DCD 2
+.DOT%
+ DCD DUP% : DCD s_dot% : DCD dot% : DCD 0
+.DUP%
+ DCD PLUS% : DCD s_dup% : DCD dup% : DCD 0
+.PLUS%
+ DCD COLON% : DCD s_plus% : DCD plus% : DCD 0
+.COLON%
+ DCD SEMICOLON% : DCD s_colon% : DCD colon% : DCD 1
+.SEMICOLON%
+ DCD 0 : DCD s_semicolon% : DCD semicolon% : DCD 1
+.end%
+] : NEXT
+CALL compile%
