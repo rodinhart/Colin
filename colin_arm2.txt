@@ -2,12 +2,19 @@ OS_WriteN = &46 : OS_BinaryToDecimal = &28 : OS_WriteI = &100 : OS_ReadUnsigned 
 pc = 15 : lr = 14 : sp = 13 : ds = 12 : in = 11 : ip = 10 : en = 9
 LINK% = 0 : NAME% = 4 : CODEWORD% = 8 : FLAGS% = 12 : PARAMS% = 16
 
-DIM code% 1023
+DIM code% 2047
+FOR i% = 0 TO 2047 STEP 4
+code%!i% = -1
+NEXT
 DIM datastack% 1023
 FOR p% = 0 TO 2 STEP 2
 P% = code%
 [OPT p%
-.input% DCB ": DBL DUP + ; : MAIN 13 DBL . ; "
+.input%
+ DCB ": IF IMMEDIATE ' 0BRANCH , HERE @ 0 , ; "
+ DCB ": THEN IMMEDIATE DUP HERE @ SWAP - SWAP ! ; "
+ DCB ": ELSE IMMEDIATE ' BRANCH , HERE @ 0 , SWAP DUP HERE @ SWAP - SWAP ! ; "
+ DCB ": MAIN 0 IF 20 ELSE 30 THEN . ; "
 .input_end%
 .s_latest% DCB "LATEST "
 .s_here% DCB "HERE "
@@ -18,11 +25,21 @@ P% = code%
 .s_plus% DCB "+ "
 .s_colon% DCB ": "
 .s_semicolon% DCB "; "
-.s_main% DCB "MAIN "
+.s_immediate% DCB "IMMEDIATE "
+.s_tick% DCB "' "
+.s_comma% DCB ", "
+.s_branch0% DCB "0BRANCH "
+.s_minus% DCB "- "
+.s_swap% DCB "SWAP "
+.s_fetch% DCB "@ "
+.s_store% DCB "! "
+.s_branch% DCB "BRANCH "
  ALIGN
 
+.ds_addr%
+ DCD datastack%
 .compile%
- adr ds, datastack%
+ ldr ds, ds_addr%
  adr in, input%
  adr r4, input_end%
  stmfd (sp)!, { lr }
@@ -60,12 +77,9 @@ P% = code%
  cmp in, r4
  blo compile_loop%
 
- ; find and run MAIN
- adr r0, s_main%
- stmea (ds)!, { r0 }
- bl find%
- ldmea (ds)!, { en }
+ ; find and run LATEST
  ldmfd (sp)!, { lr }
+ ldr en, LATEST% + PARAMS%
 .run_immediate%  ;; resumes at lr
  str en, run_prog%
  mov ip, #0
@@ -73,6 +87,11 @@ P% = code%
  b docol%
 .run_prog%
  DCD EXIT% : DCD EXIT%
+
+.var%
+ add en, en, #PARAMS%
+ stmea (ds)!, { en }
+ b next%
 
 .word%
  stmea (ds)!, { in }
@@ -190,10 +209,75 @@ P% = code%
  stmea (ds)!, { r0 }
  b next%
 
+.immediate%
+ ldr r1, HERE% + PARAMS%
+ ldr r0, [r1, #-4]
+ orr r0, r0, #1
+ str r0, [r1, #-4]
+ b next%
+
+.tick%
+ stmfd (sp)!, { lr }
+ bl word%
+ bl find%
+ ldmfd (sp)!, { lr }
+ ldr r0, HERE% + PARAMS%
+ adr r1, LIT%
+ str r1, [r0], #4
+ ldmea (ds)!, { r1 }
+ str r1, [r0], #4
+ str r0, HERE% + PARAMS%
+ b next%
+
+.comma%
+ ldmea (ds)!, { r0 }
+ ldr r1, HERE% + PARAMS%
+ str r0, [r1], #4
+ str r1, HERE% + PARAMS%
+ b next%
+
+.branch0%
+ ldr r0, [ip], #4
+ ldmea (ds)!, { r1 }
+ teq r1, #0
+ subeq ip, ip, #4
+ addeq ip, ip, r0
+ b next%
+
+.minus%
+ ldmea (ds)!, { r0, r1 }
+ sub r0, r0, r1
+ stmea (ds)!, { r0 }
+ b next%
+
+.swap%
+ ldmea (ds)!, { r0, r1 }
+ mov r2, r0
+ mov r0, r1
+ mov r1, r2
+ stmea (ds)!, { r0, r1 }
+ b next%
+
+.fetch%
+ ldmea (ds)!, { r0 }
+ ldr r0, [r0]
+ stmea (ds)!, { r0 }
+ b next%
+
+.store%
+ ldmea (ds)!, { r0, r1 }
+ str r0, [r1]
+ b next%
+
+.branch%
+ ldr r0, [ip]
+ add ip, ip, r0
+ b next%
+
 .LATEST%
- DCD HERE% : DCD s_latest% : DCD -1 : DCD 0 : DCD LATEST%
+ DCD HERE% : DCD s_latest% : DCD var% : DCD 0 : DCD LATEST%
 .HERE%
- DCD EXIT% : DCD s_here% : DCD -1 : DCD 0 : DCD end%
+ DCD EXIT% : DCD s_here% : DCD var% : DCD 0 : DCD end%
 .EXIT%
  DCD LIT% : DCD s_exit% : DCD exit% : DCD 2
 .LIT%
@@ -207,7 +291,69 @@ P% = code%
 .COLON%
  DCD SEMICOLON% : DCD s_colon% : DCD colon% : DCD 1
 .SEMICOLON%
- DCD 0 : DCD s_semicolon% : DCD semicolon% : DCD 1
+ DCD IMMEDIATE% : DCD s_semicolon% : DCD semicolon% : DCD 1
+.IMMEDIATE%
+ DCD TICK% : DCD s_immediate% : DCD immediate% : DCD 1
+.TICK%
+ DCD COMMA% : DCD s_tick% : DCD tick% : DCD 1
+.COMMA%
+ DCD BRANCH0% : DCD s_comma% : DCD comma% : DCD 0
+.BRANCH0%
+ DCD MINUS% : DCD s_branch0% : DCD branch0% : DCD 2
+.MINUS%
+ DCD SWAp% : DCD s_minus% : DCD minus% : DCD 0
+.SWAp%
+ DCD FETCH% : DCD s_swap% : DCD swap% : DCD 0
+.FETCH%
+ DCD STORE% : DCD s_fetch% : DCD fetch% : DCD 0
+.STORE%
+ DCD BRANCH% : DCD s_store% : DCD store% : DCD 0
+.BRANCH%
+ DCD 0 : DCD s_branch% : DCD branch% : DCD 2
 .end%
 ] : NEXT
+CLS
 CALL compile%
+PRINT
+
+current% = LATEST%!PARAMS%
+WHILE current% <> 0
+
+IF current%!CODEWORD% = docol% THEN
+PRINT ": ";
+ELSE PRINT "native ";
+ENDIF
+
+PROCprn(current%!NAME%)
+
+IF current%!FLAGS% = 1 THEN
+PRINT "IMMEDIATE ";
+ENDIF
+
+IF current%!CODEWORD% = docol% THEN
+params% = current% + PARAMS%
+WHILE !params% <> EXIT%
+PROCprn(!((!params%) + NAME%))
+params% = params% + 4
+IF params%!-4 = LIT% OR params%!-4 = BRANCH0% OR params%!-4 = BRANCH% THEN
+PRINT ;!params% " ";
+params% = params% + 4
+ENDIF
+ENDWHILE
+PRINT "; ";
+ENDIF
+
+
+PRINT
+current% = current%!LINK%
+ENDWHILE
+
+END
+
+DEFPROCprn(s%)
+WHILE ?s% > 32
+VDU ?s%
+s% = s% + 1
+ENDWHILE
+VDU 32
+ENDPROC
