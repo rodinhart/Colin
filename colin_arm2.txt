@@ -1,6 +1,6 @@
 OS_WriteN = &46 : OS_BinaryToDecimal = &28 : OS_WriteI = &100 : OS_ReadUnsigned = &21
 pc = 15 : lr = 14 : sp = 13 : ds = 12 : in = 11 : ip = 10 : en = 9
-LINK% = 0 : NAME% = 4 : CODEWORD% = 8 : FLAGS% = 12 : PARAMS% = 16
+LINK% = 0 : NAME% = 4 : CODEWORD% = 12 : FLAGS% = 16 : PARAMS% = 20
 
 DIM code% 2047
 FOR i% = 0 TO 2047 STEP 4
@@ -16,24 +16,6 @@ P% = code%
  DCB ": ELSE IMMEDIATE ' BRANCH , HERE @ 0 , SWAP DUP HERE @ SWAP - SWAP ! ; "
  DCB ": MAIN 0 IF 20 ELSE 30 THEN . ; "
 .input_end%
-.s_latest% DCB "LATEST "
-.s_here% DCB "HERE "
-.s_lit% DCB "LIT "
-.s_dot% DCB ". "
-.s_exit% DCB "EXIT "
-.s_dup% DCB "DUP "
-.s_plus% DCB "+ "
-.s_colon% DCB ": "
-.s_semicolon% DCB "; "
-.s_immediate% DCB "IMMEDIATE "
-.s_tick% DCB "' "
-.s_comma% DCB ", "
-.s_branch0% DCB "0BRANCH "
-.s_minus% DCB "- "
-.s_swap% DCB "SWAP "
-.s_fetch% DCB "@ "
-.s_store% DCB "! "
-.s_branch% DCB "BRANCH "
  ALIGN
 
 .ds_addr%
@@ -114,7 +96,7 @@ P% = code%
  teq r5, #0
  beq find_done%
  mov r0, r4
- ldr r1, [r5, #NAME%]
+ add r1, r5, #NAME%
  stmea (ds)!, { r0, r1 }
  bl compare%
  ldmea (ds)!, { r0 }
@@ -126,8 +108,13 @@ P% = code%
  ldmfd (sp)!, { r4, r5, pc }
 
 .compare%
+ stmfd (sp)!, { lr }
  ldmea (ds)!, { r0, r1 }
+ add lr, r1, #8
 .compare_loop%
+ cmp r1, lr
+ movhs r0, #0
+ bhs compare_end%
  ldrb r2, [r0], #1
  ldrb r3, [r1], #1
  cmp r2, #32
@@ -140,7 +127,7 @@ P% = code%
  movhi r0, #1
 .compare_end%
  stmea (ds)!, { r0 }
- mov pc, lr
+ ldmfd (sp)!, { pc }
 
 .colon%
  stmfd (sp)!, { lr }
@@ -149,13 +136,19 @@ P% = code%
  ldr r1, HERE% + PARAMS%
  ldr r0, LATEST% + PARAMS%
  str r1, LATEST% + PARAMS%
- str r0, [r1], #4
+ str r0, [r1], #4  ; store LINK
  ldmea (ds)!, { r0 }
- str r0, [r1], #4
+ mov r2, #8
+.colon_loop%
+ ldrb r3, [r0], #1  ; store NAME
+ strb r3, [r1], #1
+ subs r2, r2, #1
+ bne colon_loop%
+
  adr r0, docol%
- str r0, [r1], #4
+ str r0, [r1], #4  ; store CODEWORD
  mov r0, #0
- str r0, [r1], #4
+ str r0, [r1], #4  ; store FLAGS
  str r1, HERE% + PARAMS%
  b next%
 
@@ -275,41 +268,41 @@ P% = code%
  b next%
 
 .LATEST%
- DCD HERE% : DCD s_latest% : DCD var% : DCD 0 : DCD LATEST%
+ DCD HERE% : DCB "LATEST  " : DCD var% : DCD 0 : DCD LATEST%
 .HERE%
- DCD EXIT% : DCD s_here% : DCD var% : DCD 0 : DCD end%
+ DCD EXIT% : DCB "HERE    " : DCD var% : DCD 0 : DCD end%
 .EXIT%
- DCD LIT% : DCD s_exit% : DCD exit% : DCD 2
+ DCD LIT% : DCB "EXIT    " : DCD exit% : DCD 2
 .LIT%
- DCD DOT% : DCD s_lit% : DCD lit% : DCD 2
+ DCD DOT% : DCB "LIT     " : DCD lit% : DCD 2
 .DOT%
- DCD DUP% : DCD s_dot% : DCD dot% : DCD 0
+ DCD DUP% : DCB ".       " : DCD dot% : DCD 0
 .DUP%
- DCD PLUS% : DCD s_dup% : DCD dup% : DCD 0
+ DCD PLUS% : DCB "DUP     " : DCD dup% : DCD 0
 .PLUS%
- DCD COLON% : DCD s_plus% : DCD plus% : DCD 0
+ DCD COLON% : DCB "+       " : DCD plus% : DCD 0
 .COLON%
- DCD SEMICOLON% : DCD s_colon% : DCD colon% : DCD 1
+ DCD SEMICOLON% : DCB ":       " : DCD colon% : DCD 1
 .SEMICOLON%
- DCD IMMEDIATE% : DCD s_semicolon% : DCD semicolon% : DCD 1
+ DCD IMMEDIATE% : DCB ";       " : DCD semicolon% : DCD 1
 .IMMEDIATE%
- DCD TICK% : DCD s_immediate% : DCD immediate% : DCD 1
+ DCD TICK% : DCB "IMMEDIAT" : DCD immediate% : DCD 1
 .TICK%
- DCD COMMA% : DCD s_tick% : DCD tick% : DCD 1
+ DCD COMMA% : DCB "'       " : DCD tick% : DCD 1
 .COMMA%
- DCD BRANCH0% : DCD s_comma% : DCD comma% : DCD 0
+ DCD BRANCH0% : DCB ",       " : DCD comma% : DCD 0
 .BRANCH0%
- DCD MINUS% : DCD s_branch0% : DCD branch0% : DCD 2
+ DCD MINUS% : DCB "0BRANCH " : DCD branch0% : DCD 2
 .MINUS%
- DCD SWAp% : DCD s_minus% : DCD minus% : DCD 0
+ DCD SWAp% : DCB "-       " : DCD minus% : DCD 0
 .SWAp%
- DCD FETCH% : DCD s_swap% : DCD swap% : DCD 0
+ DCD FETCH% : DCB "SWAP    " : DCD swap% : DCD 0
 .FETCH%
- DCD STORE% : DCD s_fetch% : DCD fetch% : DCD 0
+ DCD STORE% : DCB "@       " : DCD fetch% : DCD 0
 .STORE%
- DCD BRANCH% : DCD s_store% : DCD store% : DCD 0
+ DCD BRANCH% : DCB "!       " : DCD store% : DCD 0
 .BRANCH%
- DCD 0 : DCD s_branch% : DCD branch% : DCD 2
+ DCD 0 : DCB "BRANCH  " : DCD branch% : DCD 2
 .end%
 ] : NEXT
 CLS
@@ -324,7 +317,7 @@ PRINT ": ";
 ELSE PRINT "native ";
 ENDIF
 
-PROCprn(current%!NAME%)
+PROCprn(current% + NAME%)
 
 IF current%!FLAGS% = 1 THEN
 PRINT "IMMEDIATE ";
@@ -333,7 +326,7 @@ ENDIF
 IF current%!CODEWORD% = docol% THEN
 params% = current% + PARAMS%
 WHILE !params% <> EXIT%
-PROCprn(!((!params%) + NAME%))
+PROCprn((!params%) + NAME%)
 params% = params% + 4
 IF params%!-4 = LIT% OR params%!-4 = BRANCH0% OR params%!-4 = BRANCH% THEN
 PRINT ;!params% " ";
@@ -351,9 +344,12 @@ ENDWHILE
 END
 
 DEFPROCprn(s%)
-WHILE ?s% > 32
+LOCAL n%
+n% = 8
+WHILE ?s% > 32 AND n% > 0
 VDU ?s%
 s% = s% + 1
+n%  = n% - 1
 ENDWHILE
 VDU 32
 ENDPROC
