@@ -1,5 +1,5 @@
 OS_WriteN = &46 : OS_BinaryToDecimal = &28 : OS_WriteI = &100 : OS_ReadUnsigned = &21
-pc = 15 : lr = 14 : sp = 13 : ds = 12 : in = 11 : ip = 10 : en = 9
+pc = 15 : lr = 14 : sp = 13 : ds = 12 : ip = 11 : en = 10 : in = 9
 LINK% = 0 : NAME% = 4 : CODEWORD% = 12 : FLAGS% = 16 : PARAMS% = 20
 
 DIM code% 2047
@@ -20,11 +20,28 @@ P% = code%
 
 .ds_addr%
  DCD datastack%
-.compile%
- ldr ds, ds_addr%
- adr in, input%
- adr r4, input_end%
+.boot%
  stmfd (sp)!, { lr }
+ ldr ds, ds_addr%
+ adr r0, input%
+ adr r1, input_end%
+ stmea (ds)!, { r0, r1 }
+ bl compile%
+ ldmfd (sp)!, { lr }
+ ldr en, LATEST% + PARAMS%
+.run_immediate%  ;; resumes at lr
+ str en, run_prog%
+ mov ip, #0
+ adr en, run_prog% - PARAMS%
+ b docol%
+.run_prog%
+ DCD EXIT% : DCD EXIT%
+
+
+.compile%
+ stmfd (sp)!, { r4, r5, in, lr }
+ ldmea (ds)!, { r4 }
+ ldmea (ds)!, { in }
 .compile_loop%
  bl word%
  ldmea (ds)!, { r5 }
@@ -59,21 +76,8 @@ P% = code%
  cmp in, r4
  blo compile_loop%
 
- ; find and run LATEST
- ldmfd (sp)!, { lr }
- ldr en, LATEST% + PARAMS%
-.run_immediate%  ;; resumes at lr
- str en, run_prog%
- mov ip, #0
- adr en, run_prog% - PARAMS%
- b docol%
-.run_prog%
- DCD EXIT% : DCD EXIT%
+ ldmfd (sp)!, { r4, r5, in, pc }
 
-.var%
- add en, en, #PARAMS%
- stmea (ds)!, { en }
- b next%
 
 .word%
  stmea (ds)!, { in }
@@ -129,6 +133,72 @@ P% = code%
  stmea (ds)!, { r0 }
  ldmfd (sp)!, { pc }
 
+.docol%
+ stmfd (sp)!, { ip }
+ add ip, en, #PARAMS%
+.next%
+ ldr en, [ip], #4
+ ldr pc, [en, #CODEWORD%]
+
+
+.LATEST%
+ DCD HERE% : DCB "LATEST  " : DCD var% : DCD 0 : DCD LATEST%
+.var%
+ add en, en, #PARAMS%
+ stmea (ds)!, { en }
+ b next%
+
+.HERE%
+ DCD EXIT% : DCB "HERE    " : DCD var% : DCD 0 : DCD end%
+
+.EXIT%
+ DCD LIT% : DCB "EXIT    " : DCD exit% : DCD 2
+.exit%
+ ldmfd (sp)!, { ip }
+ teq ip, #0
+ bne next%
+ mov pc, lr
+
+.LIT%
+ DCD DOT% : DCB "LIT     " : DCD lit% : DCD 2
+.lit%
+ ldr r0, [ip], #4
+ stmea (ds)!, { r0 }
+ b next%
+
+.DOT%
+ DCD DUP% : DCB ".       " : DCD dot% : DCD 0
+.dot%
+ ldmea (ds)!, { r0 }
+ adr r1, buf%
+ mov r2, #16
+ swi OS_BinaryToDecimal
+ adr r0, buf%
+ mov r1, r2
+ swi OS_WriteN
+ swi OS_WriteI + 32
+ b next%
+.buf%
+ DCD 0 : DCD 0 : DCD 0 : DCD 0
+
+.DUP%
+ DCD PLUS% : DCB "DUP     " : DCD dup% : DCD 0
+.dup%
+ ldmea (ds)!, { r0 }
+ stmea (ds)!, { r0 }
+ stmea (ds)!, { r0 }
+ b next%
+
+.PLUS%
+ DCD COLON% : DCB "+       " : DCD plus% : DCD 0
+.plus%
+ ldmea (ds)!, { r0, r1 }
+ add r0, r0, r1
+ stmea (ds)!, { r0 }
+ b next%
+
+.COLON%
+ DCD SEMICOLON% : DCB ":       " : DCD colon% : DCD 1
 .colon%
  stmfd (sp)!, { lr }
  bl word%
@@ -152,6 +222,8 @@ P% = code%
  str r1, HERE% + PARAMS%
  b next%
 
+.SEMICOLON%
+ DCD IMMEDIATE% : DCB ";       " : DCD semicolon% : DCD 1
 .semicolon%
  adr r0, EXIT%
  ldr r1, HERE% + PARAMS%
@@ -159,49 +231,8 @@ P% = code%
  str r1, HERE% + PARAMS%
  b next%
 
-.docol%
- stmfd (sp)!, { ip }
- add ip, en, #PARAMS%
-.next%
- ldr en, [ip], #4
- ldr pc, [en, #CODEWORD%]
-
-.exit%
- ldmfd (sp)!, { ip }
- teq ip, #0
- bne next%
- mov pc, lr
-
-.lit%
- ldr r0, [ip], #4
- stmea (ds)!, { r0 }
- b next%
-
-.dot%
- ldmea (ds)!, { r0 }
- adr r1, buf%
- mov r2, #16
- swi OS_BinaryToDecimal
- adr r0, buf%
- mov r1, r2
- swi OS_WriteN
- swi OS_WriteI + 32
- b next%
-.buf%
- DCD 0 : DCD 0 : DCD 0 : DCD 0
-
-.dup%
- ldmea (ds)!, { r0 }
- stmea (ds)!, { r0 }
- stmea (ds)!, { r0 }
- b next%
-
-.plus%
- ldmea (ds)!, { r0, r1 }
- add r0, r0, r1
- stmea (ds)!, { r0 }
- b next%
-
+.IMMEDIATE%
+ DCD TICK% : DCB "IMMEDIAT" : DCD immediate% : DCD 1
 .immediate%
  ldr r1, HERE% + PARAMS%
  ldr r0, [r1, #-4]
@@ -209,6 +240,8 @@ P% = code%
  str r0, [r1, #-4]
  b next%
 
+.TICK%
+ DCD COMMA% : DCB "'       " : DCD tick% : DCD 1
 .tick%
  stmfd (sp)!, { lr }
  bl word%
@@ -222,6 +255,8 @@ P% = code%
  str r0, HERE% + PARAMS%
  b next%
 
+.COMMA%
+ DCD BRANCH0% : DCB ",       " : DCD comma% : DCD 0
 .comma%
  ldmea (ds)!, { r0 }
  ldr r1, HERE% + PARAMS%
@@ -229,6 +264,8 @@ P% = code%
  str r1, HERE% + PARAMS%
  b next%
 
+.BRANCH0%
+ DCD MINUS% : DCB "0BRANCH " : DCD branch0% : DCD 2
 .branch0%
  ldr r0, [ip], #4
  ldmea (ds)!, { r1 }
@@ -237,12 +274,16 @@ P% = code%
  addeq ip, ip, r0
  b next%
 
+.MINUS%
+ DCD SWAp% : DCB "-       " : DCD minus% : DCD 0
 .minus%
  ldmea (ds)!, { r0, r1 }
  sub r0, r0, r1
  stmea (ds)!, { r0 }
  b next%
 
+.SWAp%
+ DCD FETCH% : DCB "SWAP    " : DCD swap% : DCD 0
 .swap%
  ldmea (ds)!, { r0, r1 }
  mov r2, r0
@@ -251,62 +292,33 @@ P% = code%
  stmea (ds)!, { r0, r1 }
  b next%
 
+.FETCH%
+ DCD STORE% : DCB "@       " : DCD fetch% : DCD 0
 .fetch%
  ldmea (ds)!, { r0 }
  ldr r0, [r0]
  stmea (ds)!, { r0 }
  b next%
 
+.STORE%
+ DCD BRANCH% : DCB "!       " : DCD store% : DCD 0
 .store%
  ldmea (ds)!, { r0, r1 }
  str r0, [r1]
  b next%
 
+.BRANCH%
+ DCD 0 : DCB "BRANCH  " : DCD branch% : DCD 2
 .branch%
  ldr r0, [ip]
  add ip, ip, r0
  b next%
 
-.LATEST%
- DCD HERE% : DCB "LATEST  " : DCD var% : DCD 0 : DCD LATEST%
-.HERE%
- DCD EXIT% : DCB "HERE    " : DCD var% : DCD 0 : DCD end%
-.EXIT%
- DCD LIT% : DCB "EXIT    " : DCD exit% : DCD 2
-.LIT%
- DCD DOT% : DCB "LIT     " : DCD lit% : DCD 2
-.DOT%
- DCD DUP% : DCB ".       " : DCD dot% : DCD 0
-.DUP%
- DCD PLUS% : DCB "DUP     " : DCD dup% : DCD 0
-.PLUS%
- DCD COLON% : DCB "+       " : DCD plus% : DCD 0
-.COLON%
- DCD SEMICOLON% : DCB ":       " : DCD colon% : DCD 1
-.SEMICOLON%
- DCD IMMEDIATE% : DCB ";       " : DCD semicolon% : DCD 1
-.IMMEDIATE%
- DCD TICK% : DCB "IMMEDIAT" : DCD immediate% : DCD 1
-.TICK%
- DCD COMMA% : DCB "'       " : DCD tick% : DCD 1
-.COMMA%
- DCD BRANCH0% : DCB ",       " : DCD comma% : DCD 0
-.BRANCH0%
- DCD MINUS% : DCB "0BRANCH " : DCD branch0% : DCD 2
-.MINUS%
- DCD SWAp% : DCB "-       " : DCD minus% : DCD 0
-.SWAp%
- DCD FETCH% : DCB "SWAP    " : DCD swap% : DCD 0
-.FETCH%
- DCD STORE% : DCB "@       " : DCD fetch% : DCD 0
-.STORE%
- DCD BRANCH% : DCB "!       " : DCD store% : DCD 0
-.BRANCH%
- DCD 0 : DCB "BRANCH  " : DCD branch% : DCD 2
 .end%
 ] : NEXT
 CLS
-CALL compile%
+PRINT ;P% - code% " bytes"
+CALL boot%
 PRINT
 
 current% = LATEST%!PARAMS%
