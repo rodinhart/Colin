@@ -2,7 +2,7 @@ OS_WriteN = &46 : OS_BinaryToDecimal = &28 : OS_WriteI = &100 : OS_ReadUnsigned 
 pc = 15 : lr = 14 : sp = 13 : ds = 12 : ip = 11 : en = 10 : in = 9
 LINK% = 0 : NAME% = 4 : CODEWORD% = 12 : FLAGS% = 16 : PARAMS% = 20
 
-DIM code% 2047
+DIM code% 4095
 FOR i% = 0 TO 2047 STEP 4
 code%!i% = -1
 NEXT
@@ -14,7 +14,17 @@ P% = code%
  DCB ": IF IMMEDIATE ' 0BRANCH , HERE @ 0 , ; "
  DCB ": THEN IMMEDIATE DUP HERE @ SWAP - SWAP ! ; "
  DCB ": ELSE IMMEDIATE ' BRANCH , HERE @ 0 , SWAP DUP HERE @ SWAP - SWAP ! ; "
- DCB ": MAIN 0 IF 20 ELSE 30 THEN . ; "
+
+ DCB ": BEGIN IMMEDIATE HERE @ ; "
+ DCB ": WHILE IMMEDIATE ' 0BRANCH , HERE @ 0 , ; "
+ DCB ": REPEAT IMMEDIATE SWAP  ' BRANCH ,  HERE @ - ,  DUP HERE @ SWAP - SWAP ! ; "
+
+ DCB "( allocate space for 20 stars ) "
+ DCB "VARIABLE stars "
+
+ DCB ": MAIN "
+ DCB "0 IF 20 ELSE 30 THEN . "
+ DCB "; "
 .input_end%
  ALIGN
 
@@ -59,19 +69,25 @@ P% = code%
  b compile_next%
 
 .compile_int%
- mov r0, #10
- mov r1, r8
- swi OS_ReadUnsigned
- ldr r0, HERE% + PARAMS%
- adr r1, LIT%
- str r1, [r0], #4
- str r2, [r0], #4
- str r0, HERE% + PARAMS%
+ mov r0, r8
+ bl number%
+ ldr r1, HERE% + PARAMS%
+ adr r2, LIT%
+ str r2, [r1], #4
+ str r0, [r1], #4
+ str r1, HERE% + PARAMS%
 
 .compile_next%
  cmp in, r7
  blo compile_loop%
  ldmfd (sp)!, { pc }
+
+.number%
+ mov r1, r0
+ mov r0, #10
+ swi OS_ReadUnsigned
+ mov r0, r2
+ mov pc, lr
 
 .word%
  mov r0, in
@@ -138,7 +154,7 @@ P% = code%
  b next%
 
 .TICK%
- DCD PLUS% : DCB "'       " : DCD tick% : DCD 1
+ DCD PAREN% : DCB "'       " : DCD tick% : DCD 1
 .tick%
  stmfd (sp)!, { lr }
  bl word%
@@ -151,6 +167,19 @@ P% = code%
  str r2, [r0], #4
  str r0, HERE% + PARAMS%
  b next%
+
+.PAREN%
+ DCD PLUS% : DCB "(       " : DCD paren% : DCD 1
+.paren%
+ ldrb r0, [in], #1
+ teq r0, #ASC ")"
+ bne paren%
+.paren_ws%
+ ldrb r0, [in]
+ cmp r0, #32
+ addls in, in, #1
+ bls paren_ws%
+ b exit%
 
 .PLUS%
  DCD COMMA% : DCB "+       " : DCD plus% : DCD 0
@@ -202,12 +231,17 @@ P% = code%
  addeq ip, ip, r0
  b next%
 
-.COLON%  ;  LATEST @ HERE @ LATEST ! , WORD WORD2WORDS , , ' DOCOL , 0 ,
- DCD SEMICOLON% : DCB ":       " : DCD docol% : DCD 1
- DCD LATEST% : DCD FETCH% : DCD HERE% : DCD FETCH% : DCD LATEST% : DCD STORE% : DCD COMMA%
- DCD WORD% : DCD WORD2WORDS% : DCD COMMA% : DCD COMMA%
+.COLON%  ;  CREATE docol% , 0 ,
+ DCD CREATE% : DCB ":       " : DCD docol% : DCD 1
+ DCD CREATE%
  DCD LIT% : DCD docol% : DCD COMMA%
  DCD LIT% : DCD 0 : DCD COMMA%
+ DCD EXIT%
+
+.CREATE%  ; LATEST @ HERE @ LATEST ! , WORD WORD2WORDS , ,
+ DCD SEMICOLON% : DCB "CREATE  " : DCD docol% : DCD 1
+ DCD LATEST% : DCD FETCH% : DCD HERE% : DCD FETCH% : DCD LATEST% : DCD STORE% : DCD COMMA%
+ DCD WORD% : DCD WORD2WORDS% : DCD COMMA% : DCD COMMA%
  DCD EXIT%
 
 .SEMICOLON%  ;  ' EXIT , ;
@@ -215,11 +249,23 @@ P% = code%
  DCD LIT% : DCD EXIT% : DCD COMMA% : DCD EXIT%
 
 .FETCH%
- DCD BRANCH% : DCB "@       " : DCD fetch% : DCD 0
+ DCD ALLOT% : DCB "@       " : DCD fetch% : DCD 0
 .fetch%
  ldmea (ds)!, { r0 }
  ldr r0, [r0]
  stmea (ds)!, { r0 }
+ b next%
+
+.ALLOT%
+ DCD BRANCH% : DCB "ALLOT   " : DCD allot% : DCD 1
+.allot%
+ stmfd (sp)!, { lr }
+ bl word%
+ bl number%
+ ldmfd (sp)!, { lr }
+ ldr r1, HERE% + PARAMS%
+ add r1, r1, r0
+ str r1, HERE% + PARAMS%
  b next%
 
 .BRANCH%
@@ -247,10 +293,6 @@ P% = code%
 
 .HERE%
  DCD IMMEDIATE% : DCB "HERE    " : DCD var% : DCD 0 : DCD end%
-.var%
- add en, en, #PARAMS%
- stmea (ds)!, { en }
- b next%
 
 .IMMEDIATE%
  DCD LATEST% : DCB "IMMEDIAT" : DCD immediate% : DCD 1
@@ -272,13 +314,25 @@ P% = code%
  b next%
 
 .SWAp%
- DCD WORD% : DCB "SWAP    " : DCD swap% : DCD 0
+ DCD VARIABLE% : DCB "SWAP    " : DCD swap% : DCD 0
 .swap%
  ldmea (ds)!, { r0, r1 }
  mov r2, r0
  mov r0, r1
  mov r1, r2
  stmea (ds)!, { r0, r1 }
+ b next%
+
+.VARIABLE%  ;  CREATE var% , 0 , 0 ,
+ DCD WORD% : DCB "VARIABLE" : DCD docol% : DCD 1
+ DCD CREATE%
+ DCD LIT% : DCD var% : DCD COMMA%
+ DCD LIT% : DCD 0 : DCD COMMA%
+ DCD LIT% : DCD 0 : DCD COMMA%
+ DCD EXIT%
+.var%
+ add en, en, #PARAMS%
+ stmea (ds)!, { en }
  b next%
 
 .WORD%
