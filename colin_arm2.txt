@@ -20,10 +20,11 @@ P% = code%
  DCB ": REPEAT IMMEDIATE SWAP  ' BRANCH ,  HERE @ - ,  DUP HERE @ SWAP - SWAP ! ; "
 
  DCB "( allocate space for 20 stars ) "
- DCB "VARIABLE stars "
+ DCB "VARIABLE stars ALLOT 60 "
 
  DCB ": MAIN "
  DCB "0 IF 20 ELSE 30 THEN . "
+ DCB "1 2 < . "
  DCB "; "
 .input_end%
  ALIGN
@@ -145,6 +146,12 @@ P% = code%
  ldr en, [ip], #4
  ldr pc, [en, #CODEWORD%]
 
+.LIT%
+ DCD STORE% : DCB "LIT     " : DCD lit% : DCD 2
+.lit%
+ ldr r0, [ip], #4
+ stmea (ds)!, { r0 }
+ b next%
 
 .STORE%
  DCD TICK% : DCB "!       " : DCD store% : DCD 0
@@ -245,8 +252,18 @@ P% = code%
  DCD EXIT%
 
 .SEMICOLON%  ;  ' EXIT , ;
- DCD FETCH% : DCB ";       " : DCD docol% : DCD 1
+ DCD LESSTHAN% : DCB ";       " : DCD docol% : DCD 1
  DCD LIT% : DCD EXIT% : DCD COMMA% : DCD EXIT%
+
+.LESSTHAN%
+ DCD FETCH% : DCB "<       " : DCD lessthan% : DCD 0
+.lessthan%
+ ldmea (ds)!, { r0, r1 }
+ cmp r0, r1
+ movlt r0, #1
+ movge r0, #0
+ stmea (ds)!, { r0 }
+ b next%
 
 .FETCH%
  DCD ALLOT% : DCB "@       " : DCD fetch% : DCD 0
@@ -304,14 +321,7 @@ P% = code%
  b next%
 
 .LATEST%
- DCD LIT% : DCB "LATEST  " : DCD var% : DCD 0 : DCD STORE%
-
-.LIT%
- DCD SWAp% : DCB "LIT     " : DCD lit% : DCD 2
-.lit%
- ldr r0, [ip], #4
- stmea (ds)!, { r0 }
- b next%
+ DCD SWAp% : DCB "LATEST  " : DCD var% : DCD 0 : DCD LIT%
 
 .SWAp%
  DCD VARIABLE% : DCB "SWAP    " : DCD swap% : DCD 0
