@@ -45,7 +45,7 @@ P% = code%
  ldmea (ds)!, { in }
 .compile_loop%
  bl word%
- ldmea (ds)!, { r5 }
+ mov r5, r0
 
  mov r0, r5
  bl find%
@@ -81,14 +81,14 @@ P% = code%
 
 
 .word%
- stmea (ds)!, { in }
+ mov r0, in
 .word_loop%
- ldrb r0, [in], #1
- cmp r0, #32
+ ldrb r1, [in], #1
+ cmp r1, #32
  bhi word_loop%
 .word_ws%
- ldrb r0, [in]
- cmp r0, #32
+ ldrb r1, [in]
+ cmp r1, #32
  addls in, in, #1
  bls word_ws%
  mov pc, lr
@@ -199,11 +199,12 @@ P% = code%
  stmfd (sp)!, { lr }
  bl word%
  ldmfd (sp)!, { lr }
+ mov r2, r0
  ldr r1, HERE% + PARAMS%
  ldr r0, LATEST% + PARAMS%
  str r1, LATEST% + PARAMS%
  str r0, [r1], #4  ; store LINK
- ldmea (ds)!, { r0 }
+ mov r0, r2
  mov r2, #8
 .colon_loop%
  ldrb r3, [r0], #1  ; store NAME
@@ -241,7 +242,6 @@ P% = code%
 .tick%
  stmfd (sp)!, { lr }
  bl word%
- ldmea (ds)!, { r0 }
  bl find%
  ldmfd (sp)!, { lr }
  mov r2, r0
