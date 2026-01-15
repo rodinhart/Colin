@@ -1,11 +1,8 @@
-OS_WriteN = &46 : OS_BinaryToDecimal = &28 : OS_WriteI = &100 : OS_ReadUnsigned = &21 : OS_Byte = &06
+OS_WriteN = &46 : OS_BinaryToDecimal = &28 : OS_WriteI = &100 : OS_ReadUnsigned = &21 : OS_Byte = &06 : OS_WriteC = &00
 pc = 15 : lr = 14 : sp = 13 : ds = 12 : ip = 11 : en = 10 : in = 9
 LINK% = 0 : NAME% = 4 : CODEWORD% = 12 : FLAGS% = 16 : PARAMS% = 20
 
 DIM code% 4095
-FOR i% = 0 TO 2047 STEP 4
-code%!i% = -1
-NEXT
 DIM datastack% 1023
 FOR p% = 0 TO 2 STEP 2
 P% = code%
@@ -20,10 +17,32 @@ P% = code%
  DCB ": REPEAT IMMEDIATE SWAP  ' BRANCH ,  HERE @ - ,  DUP HERE @ SWAP - SWAP ! ; "
 
  DCB "( allocate space for 20 stars ) "
- DCB "VARIABLE stars ALLOT 60 "
+ DCB "VARIABLE stars ALLOT 240 "
 
  DCB ": MAIN "
- DCB "0 IF 20 ELSE 30 THEN . 11 12 13 14 2 PICK . "
+ DCB "( setup x, y, and speed ) "
+ DCB "stars 0 BEGIN DUP 20 < WHILE "
+ DCB "SWAP "
+ DCB "255 RAND OVER ! 4 + "
+ DCB "255 RAND OVER ! 4 + "
+ DCB "1 3 RAND + OVER ! 4 + "
+ DCB "SWAP 1 + REPEAT DROP "
+
+ DCB "( render loop ) "
+ DCB "0 BEGIN DUP 300 < WHILE "
+ DCB "WAIT CLS "
+
+ DCB "stars 0 BEGIN DUP 20 < WHILE "
+ DCB "SWAP "
+ DCB "DUP @ OVER 4 + @ 2 PICK 8 + @ "
+ DCB "DUP 2 < IF DROP 21 ELSE 3 < IF 42 ELSE 63 THEN THEN "
+ DCB "PIXEL "
+ DCB "DUP @ OVER 8 + @ + 255 AND OVER ! "
+ DCB "12 + "
+ DCB "SWAP 1 + REPEAT DROP DROP "
+
+ DCB "1 + REPEAT DROP "
+
  DCB "; "
 .input_end%
  ALIGN
@@ -273,7 +292,7 @@ P% = code%
  b next%
 
 .ALLOT%
- DCD BRANCH% : DCB "ALLOT   " : DCD allot% : DCD 1
+ DCD ANd% : DCB "ALLOT   " : DCD allot% : DCD 1
 .allot%
  stmfd (sp)!, { lr }
  bl word%
@@ -282,6 +301,14 @@ P% = code%
  ldr r1, HERE% + PARAMS%
  add r1, r1, r0
  str r1, HERE% + PARAMS%
+ b next%
+
+.ANd%
+ DCD BRANCH% : DCB "AND     " : DCD and% : DCD 0
+.and%
+ ldmea (ds)!, { r0, r1 }
+ and r0, r0, r1
+ stmea (ds)!, { r0 }
  b next%
 
 .BRANCH%
@@ -332,10 +359,17 @@ P% = code%
  b next%
 
 .LATEST%
- DCD PICK% : DCB "LATEST  " : DCD var% : DCD 0 : DCD LIT%
+ DCD OVER% : DCB "LATEST  " : DCD var% : DCD 0 : DCD LIT%
+
+.OVER%
+ DCD PICK% : DCB "OVER    " : DCD over% : DCD 0
+.over%
+ ldr r0, [ds, #-8]
+ stmea (ds)!, { r0 }
+ b next%
 
 .PICK%
- DCD RAND% : DCB "PICK    " : DCD pick% : DCD 0
+ DCD PIXEL% : DCB "PICK    " : DCD pick% : DCD 0
 .pick%
  ldmea (ds)!, { r0 }
  add r0, r0, #1
@@ -343,19 +377,42 @@ P% = code%
  stmea (ds)!, { r0 }
  b next%
 
+.PIXEL%
+ DCD RAND% : DCB "PIXEL   " : DCD pixel% : DCD 0
+.pixel%
+ ldmea (ds)!, { r1, r2, r3 }
+ swi OS_WriteI + 18
+ swi OS_WriteI + 0
+ mov r0, r3
+ swi OS_WriteC
+
+ swi OS_WriteI + 25
+ swi OS_WriteI + 69
+
+ mov r0, r1, lsl #2
+ swi OS_WriteC
+ mov r0, r1, lsr #6
+ swi OS_WriteC
+ 
+ mov r0, r2, lsl #2
+ swi OS_WriteC
+ mov r0, r2, lsr #6
+ swi OS_WriteC
+ b next%
+
 .RAND%
  DCD SWAp% : DCB "RAND    " : DCD rand% : DCD 0
 .rand%
- ldmea (ds)!, { r0 }
+ ldmea (ds)!, { r3 }
  ldr r0, rand_seed%
  ldr r1, rand_a%
  ldr r2, rand_c%
- mla r0, r2, r1, r0
+ mla r0, r1, r0, r2
  str r0, rand_seed%
- and r0, r0, #255
+ and r0, r0, r3
  stmea (ds)!, { r0 }
  b next%
-.rand_seed% DCD 726378
+.rand_seed% DCD &26294638
 .rand_a% DCD 1664525
 .rand_c% DCD 1013904223
 
@@ -422,7 +479,7 @@ P% = code%
 
 .end%
 ] : NEXT
-CLS
+MODE 13 : OFF : GCOL 0, 63 TINT 192
 PRINT ;P% - code% " bytes"
 CALL boot%
 PRINT
