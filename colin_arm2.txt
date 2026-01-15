@@ -47,10 +47,10 @@ P% = code%
  bl word%
  ldmea (ds)!, { r5 }
 
- stmea (ds)!, { r5 }
+ mov r0, r5
  bl find%
 
- ldmea (ds)!, { en }
+ mov en, r0
  teq en, #0
  beq compile_int%
  ldr r0, [en, #FLAGS%]
@@ -95,7 +95,7 @@ P% = code%
 
 .find%
  stmfd (sp)!, { r4, r5, r6, lr }
- ldmea (ds)!, { r6 }
+ mov r6, r0
  ldr r5, LATEST% + PARAMS%
 .find_loop%
  teq r5, #0
@@ -107,7 +107,7 @@ P% = code%
  ldrne r5, [r5, #LINK%]
  bne find_loop%
 .find_done%
- stmea (ds)!, { r5 }
+ mov r0, r5
  ldmfd (sp)!, { r4, r5, r6, pc }
 
 .compare%
@@ -241,13 +241,14 @@ P% = code%
 .tick%
  stmfd (sp)!, { lr }
  bl word%
+ ldmea (ds)!, { r0 }
  bl find%
  ldmfd (sp)!, { lr }
+ mov r2, r0
  ldr r0, HERE% + PARAMS%
  adr r1, LIT%
  str r1, [r0], #4
- ldmea (ds)!, { r1 }
- str r1, [r0], #4
+ str r2, [r0], #4
  str r0, HERE% + PARAMS%
  b next%
 
