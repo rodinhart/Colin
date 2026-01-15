@@ -24,7 +24,6 @@ P% = code%
 
  DCB ": MAIN "
  DCB "0 IF 20 ELSE 30 THEN . "
- DCB "WAIT "
  DCB "; "
 .input_end%
  ALIGN
@@ -286,10 +285,16 @@ P% = code%
  b next%
 
 .BRANCH%
- DCD DUP% : DCB "BRANCH  " : DCD branch% : DCD 2
+ DCD CLs% : DCB "BRANCH  " : DCD branch% : DCD 2
 .branch%
  ldr r0, [ip]
  add ip, ip, r0
+ b next%
+
+.CLs%
+ DCD DUP% : DCB "CLS     " : DCD cls% : DCD 0
+.cls%
+ SWI OS_WriteI + 12
  b next%
 
 .DUP%
