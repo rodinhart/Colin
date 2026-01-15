@@ -37,7 +37,6 @@ P% = code%
 .run_prog%
  DCD EXIT% : DCD EXIT%
 
-
 .compile%
  stmfd (sp)!, { lr }
  mov in, r0
@@ -72,7 +71,6 @@ P% = code%
 .compile_next%
  cmp in, r7
  blo compile_loop%
-
  ldmfd (sp)!, { pc }
 
 .word%
@@ -131,31 +129,30 @@ P% = code%
  ldr en, [ip], #4
  ldr pc, [en, #CODEWORD%]
 
-
-.LATEST%
- DCD HERE% : DCB "LATEST  " : DCD var% : DCD 0 : DCD LATEST%
+.HERE%
+ DCD LIT% : DCB "HERE    " : DCD var% : DCD 0 : DCD end%
 .var%
  add en, en, #PARAMS%
  stmea (ds)!, { en }
  b next%
 
-.HERE%
- DCD EXIT% : DCB "HERE    " : DCD var% : DCD 0 : DCD end%
+.LIT%
+ DCD LATEST% : DCB "LIT     " : DCD lit% : DCD 2
+.lit%
+ ldr r0, [ip], #4
+ stmea (ds)!, { r0 }
+ b next%
+
+.LATEST%
+ DCD EXIT% : DCB "LATEST  " : DCD var% : DCD 0 : DCD HERE%
 
 .EXIT%
- DCD LIT% : DCB "EXIT    " : DCD exit% : DCD 2
+ DCD DOT% : DCB "EXIT    " : DCD exit% : DCD 2
 .exit%
  ldmfd (sp)!, { ip }
  teq ip, #0
  bne next%
  mov pc, lr
-
-.LIT%
- DCD DOT% : DCB "LIT     " : DCD lit% : DCD 2
-.lit%
- ldr r0, [ip], #4
- stmea (ds)!, { r0 }
- b next%
 
 .DOT%
  DCD DUP% : DCB ".       " : DCD dot% : DCD 0
@@ -188,31 +185,13 @@ P% = code%
  stmea (ds)!, { r0 }
  b next%
 
-.COLON%
- DCD SEMICOLON% : DCB ":       " : DCD colon% : DCD 1
-.colon%
- stmfd (sp)!, { lr }
- bl word%
- ldmfd (sp)!, { lr }
- mov r2, r0
- ldr r1, HERE% + PARAMS%
- ldr r0, LATEST% + PARAMS%
- str r1, LATEST% + PARAMS%
- str r0, [r1], #4  ; store LINK
- mov r0, r2
- mov r2, #8
-.colon_loop%
- ldrb r3, [r0], #1  ; store NAME
- strb r3, [r1], #1
- subs r2, r2, #1
- bne colon_loop%
-
- adr r0, docol%
- str r0, [r1], #4  ; store CODEWORD
- mov r0, #0
- str r0, [r1], #4  ; store FLAGS
- str r1, HERE% + PARAMS%
- b next%
+.COLON%  ;  LATEST @ HERE @ LATEST ! , WORD WORD2WORDS , , ' DOCOL , 0 ,
+ DCD SEMICOLON% : DCB ":       " : DCD docol% : DCD 1
+ DCD LATEST% : DCD FETCH% : DCD HERE% : DCD FETCH% : DCD LATEST% : DCD STORE% : DCD COMMA%
+ DCD WORD% : DCD WORD2WORDS% : DCD COMMA% : DCD COMMA%
+ DCD LIT% : DCD docol% : DCD COMMA%
+ DCD LIT% : DCD 0 : DCD COMMA%
+ DCD EXIT%
 
 .SEMICOLON%
  DCD IMMEDIATE% : DCB ";       " : DCD semicolon% : DCD 1
@@ -300,10 +279,42 @@ P% = code%
  b next%
 
 .BRANCH%
- DCD 0 : DCB "BRANCH  " : DCD branch% : DCD 2
+ DCD WORD% : DCB "BRANCH  " : DCD branch% : DCD 2
 .branch%
  ldr r0, [ip]
  add ip, ip, r0
+ b next%
+
+.WORD%
+ DCD 0 : DCB "WORD    " : DCD word2% : DCD 0
+.word2%
+ stmfd (sp)!, { lr }
+ bl word%
+ stmea (ds)!, { r0 }
+ ldmfd (sp)!, { lr }
+ b next%
+
+.WORD2WORDS%
+ DCD 0 : DCB "WORD2WOR" : DCD word2words% : DCD 2
+.word2words%
+ ldmea (ds)!, { r0 }
+ ldrb r1, [r0, #7]
+ ldrb r2, [r0, #6]
+ orr r1, r2, r1, lsl#8
+ ldrb r2, [r0, #5]
+ orr r1, r2, r1, lsl#8
+ ldrb r2, [r0, #4]
+ orr r1, r2, r1, lsl#8 
+
+ ldrb r2, [r0, #3]
+ ldrb r3, [r0, #2]
+ orr r2, r3, r2, lsl#8
+ ldrb r3, [r0, #1]
+ orr r2, r3, r2, lsl#8
+ ldrb r3, [r0, #0]
+ orr r2, r3, r2, lsl#8 
+
+ stmea (ds)!, { r1, r2 }
  b next%
 
 .end%
@@ -312,6 +323,8 @@ CLS
 PRINT ;P% - code% " bytes"
 CALL boot%
 PRINT
+PRINT ;HERE%!PARAMS% - code% " bytes"
+END
 
 current% = LATEST%!PARAMS%
 WHILE current% <> 0
