@@ -1,4 +1,4 @@
-OS_WriteN = &46 : OS_BinaryToDecimal = &28 : OS_WriteI = &100 : OS_ReadUnsigned = &21
+OS_WriteN = &46 : OS_BinaryToDecimal = &28 : OS_WriteI = &100 : OS_ReadUnsigned = &21 : OS_Byte = &06
 pc = 15 : lr = 14 : sp = 13 : ds = 12 : ip = 11 : en = 10 : in = 9
 LINK% = 0 : NAME% = 4 : CODEWORD% = 12 : FLAGS% = 16 : PARAMS% = 20
 
@@ -24,7 +24,7 @@ P% = code%
 
  DCB ": MAIN "
  DCB "0 IF 20 ELSE 30 THEN . "
- DCB "1 2 < . "
+ DCB "WAIT "
  DCB "; "
 .input_end%
  ALIGN
@@ -321,7 +321,23 @@ P% = code%
  b next%
 
 .LATEST%
- DCD SWAp% : DCB "LATEST  " : DCD var% : DCD 0 : DCD LIT%
+ DCD RAND% : DCB "LATEST  " : DCD var% : DCD 0 : DCD LIT%
+
+.RAND%
+ DCD SWAp% : DCB "RAND    " : DCD rand% : DCD 0
+.rand%
+ ldmea (ds)!, { r0 }
+ ldr r0, rand_seed%
+ ldr r1, rand_a%
+ ldr r2, rand_c%
+ mla r0, r2, r1, r0
+ str r0, rand_seed%
+ and r0, r0, #255
+ stmea (ds)!, { r0 }
+ b next%
+.rand_seed% DCD 726378
+.rand_a% DCD 1664525
+.rand_c% DCD 1013904223
 
 .SWAp%
  DCD VARIABLE% : DCB "SWAP    " : DCD swap% : DCD 0
@@ -334,7 +350,7 @@ P% = code%
  b next%
 
 .VARIABLE%  ;  CREATE var% , 0 , 0 ,
- DCD WORD% : DCB "VARIABLE" : DCD docol% : DCD 1
+ DCD WAIt% : DCB "VARIABLE" : DCD docol% : DCD 1
  DCD CREATE%
  DCD LIT% : DCD var% : DCD COMMA%
  DCD LIT% : DCD 0 : DCD COMMA%
@@ -343,6 +359,13 @@ P% = code%
 .var%
  add en, en, #PARAMS%
  stmea (ds)!, { en }
+ b next%
+
+.WAIt%
+ DCD WORD% : DCB "WAIT    " : DCD wait% : DCD 0
+.wait%
+ mov r0, #19
+ swi OS_Byte
  b next%
 
 .WORD%
