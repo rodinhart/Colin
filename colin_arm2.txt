@@ -32,8 +32,9 @@ P% = code%
 .run_immediate%  ;; resumes at lr
  str en, run_prog%
  mov ip, #0
- adr en, run_prog% - PARAMS%
- b docol%
+ stmfd (sp)!, { ip }
+ adr ip, run_prog%
+ b next%
 .run_prog%
  DCD EXIT% : DCD EXIT%
 
@@ -93,30 +94,26 @@ P% = code%
  mov pc, lr
 
 .find%
- stmfd (sp)!, { r4, r5, lr }
- ldmea (ds)!, { r4 }
+ stmfd (sp)!, { r4, r5, r6, lr }
+ ldmea (ds)!, { r6 }
  ldr r5, LATEST% + PARAMS%
 .find_loop%
  teq r5, #0
  beq find_done%
- mov r0, r4
+ mov r0, r6
  add r1, r5, #NAME%
- stmea (ds)!, { r0, r1 }
  bl compare%
- ldmea (ds)!, { r0 }
  teq r0, #0
  ldrne r5, [r5, #LINK%]
  bne find_loop%
 .find_done%
  stmea (ds)!, { r5 }
- ldmfd (sp)!, { r4, r5, pc }
+ ldmfd (sp)!, { r4, r5, r6, pc }
 
 .compare%
- stmfd (sp)!, { lr }
- ldmea (ds)!, { r0, r1 }
- add lr, r1, #8
+ add r4, r1, #8
 .compare_loop%
- cmp r1, lr
+ cmp r1, r4
  movhs r0, #0
  bhs compare_end%
  ldrb r2, [r0], #1
@@ -130,8 +127,7 @@ P% = code%
  mvnlo r0, #0
  movhi r0, #1
 .compare_end%
- stmea (ds)!, { r0 }
- ldmfd (sp)!, { pc }
+ mov pc, lr
 
 .docol%
  stmfd (sp)!, { ip }
