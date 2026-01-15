@@ -23,7 +23,7 @@ P% = code%
  DCB "VARIABLE stars ALLOT 60 "
 
  DCB ": MAIN "
- DCB "0 IF 20 ELSE 30 THEN . "
+ DCB "0 IF 20 ELSE 30 THEN . 11 12 13 14 2 PICK . "
  DCB "; "
 .input_end%
  ALIGN
@@ -332,7 +332,16 @@ P% = code%
  b next%
 
 .LATEST%
- DCD RAND% : DCB "LATEST  " : DCD var% : DCD 0 : DCD LIT%
+ DCD PICK% : DCB "LATEST  " : DCD var% : DCD 0 : DCD LIT%
+
+.PICK%
+ DCD RAND% : DCB "PICK    " : DCD pick% : DCD 0
+.pick%
+ ldmea (ds)!, { r0 }
+ add r0, r0, #1
+ ldr r0, [ds, -r0, lsl#2]
+ stmea (ds)!, { r0 }
+ b next%
 
 .RAND%
  DCD SWAp% : DCB "RAND    " : DCD rand% : DCD 0
