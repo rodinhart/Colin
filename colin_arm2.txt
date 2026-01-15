@@ -292,9 +292,15 @@ P% = code%
  b next%
 
 .CLs%
- DCD DUP% : DCB "CLS     " : DCD cls% : DCD 0
+ DCD DROP% : DCB "CLS     " : DCD cls% : DCD 0
 .cls%
  SWI OS_WriteI + 12
+ b next%
+
+.DROP%
+ DCD DUP% : DCB "DROP    " : DCD drop% : DCD 0
+.drop%
+ ldmea (ds)!, { r0 }
  b next%
 
 .DUP%
