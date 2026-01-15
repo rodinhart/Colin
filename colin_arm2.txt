@@ -25,7 +25,6 @@ P% = code%
  ldr ds, ds_addr%
  adr r0, input%
  adr r1, input_end%
- stmea (ds)!, { r0, r1 }
  bl compile%
  ldmfd (sp)!, { lr }
  ldr en, LATEST% + PARAMS%
@@ -41,8 +40,8 @@ P% = code%
 
 .compile%
  stmfd (sp)!, { r4, r5, in, lr }
- ldmea (ds)!, { r4 }
- ldmea (ds)!, { in }
+ mov in, r0
+ mov r4, r1
 .compile_loop%
  bl word%
  mov r5, r0
