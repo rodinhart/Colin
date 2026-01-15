@@ -129,90 +129,16 @@ P% = code%
  ldr en, [ip], #4
  ldr pc, [en, #CODEWORD%]
 
-.HERE%
- DCD LIT% : DCB "HERE    " : DCD var% : DCD 0 : DCD end%
-.var%
- add en, en, #PARAMS%
- stmea (ds)!, { en }
- b next%
 
-.LIT%
- DCD LATEST% : DCB "LIT     " : DCD lit% : DCD 2
-.lit%
- ldr r0, [ip], #4
- stmea (ds)!, { r0 }
- b next%
-
-.LATEST%
- DCD EXIT% : DCB "LATEST  " : DCD var% : DCD 0 : DCD HERE%
-
-.EXIT%
- DCD DOT% : DCB "EXIT    " : DCD exit% : DCD 2
-.exit%
- ldmfd (sp)!, { ip }
- teq ip, #0
- bne next%
- mov pc, lr
-
-.DOT%
- DCD DUP% : DCB ".       " : DCD dot% : DCD 0
-.dot%
- ldmea (ds)!, { r0 }
- adr r1, buf%
- mov r2, #16
- swi OS_BinaryToDecimal
- adr r0, buf%
- mov r1, r2
- swi OS_WriteN
- swi OS_WriteI + 32
- b next%
-.buf%
- DCD 0 : DCD 0 : DCD 0 : DCD 0
-
-.DUP%
- DCD PLUS% : DCB "DUP     " : DCD dup% : DCD 0
-.dup%
- ldmea (ds)!, { r0 }
- stmea (ds)!, { r0 }
- stmea (ds)!, { r0 }
- b next%
-
-.PLUS%
- DCD COLON% : DCB "+       " : DCD plus% : DCD 0
-.plus%
+.STORE%
+ DCD TICK% : DCB "!       " : DCD store% : DCD 0
+.store%
  ldmea (ds)!, { r0, r1 }
- add r0, r0, r1
- stmea (ds)!, { r0 }
- b next%
-
-.COLON%  ;  LATEST @ HERE @ LATEST ! , WORD WORD2WORDS , , ' DOCOL , 0 ,
- DCD SEMICOLON% : DCB ":       " : DCD docol% : DCD 1
- DCD LATEST% : DCD FETCH% : DCD HERE% : DCD FETCH% : DCD LATEST% : DCD STORE% : DCD COMMA%
- DCD WORD% : DCD WORD2WORDS% : DCD COMMA% : DCD COMMA%
- DCD LIT% : DCD docol% : DCD COMMA%
- DCD LIT% : DCD 0 : DCD COMMA%
- DCD EXIT%
-
-.SEMICOLON%
- DCD IMMEDIATE% : DCB ";       " : DCD semicolon% : DCD 1
-.semicolon%
- adr r0, EXIT%
- ldr r1, HERE% + PARAMS%
- str r0, [r1], #4
- str r1, HERE% + PARAMS%
- b next%
-
-.IMMEDIATE%
- DCD TICK% : DCB "IMMEDIAT" : DCD immediate% : DCD 1
-.immediate%
- ldr r1, HERE% + PARAMS%
- ldr r0, [r1, #-4]
- orr r0, r0, #1
- str r0, [r1, #-4]
+ str r0, [r1]
  b next%
 
 .TICK%
- DCD COMMA% : DCB "'       " : DCD tick% : DCD 1
+ DCD PLUS% : DCB "'       " : DCD tick% : DCD 1
 .tick%
  stmfd (sp)!, { lr }
  bl word%
@@ -226,8 +152,16 @@ P% = code%
  str r0, HERE% + PARAMS%
  b next%
 
+.PLUS%
+ DCD COMMA% : DCB "+       " : DCD plus% : DCD 0
+.plus%
+ ldmea (ds)!, { r0, r1 }
+ add r0, r0, r1
+ stmea (ds)!, { r0 }
+ b next%
+
 .COMMA%
- DCD BRANCH0% : DCB ",       " : DCD comma% : DCD 0
+ DCD MINUS% : DCB ",       " : DCD comma% : DCD 0
 .comma%
  ldmea (ds)!, { r0 }
  ldr r1, HERE% + PARAMS%
@@ -235,8 +169,31 @@ P% = code%
  str r1, HERE% + PARAMS%
  b next%
 
+.MINUS%
+ DCD DOT% : DCB "-       " : DCD minus% : DCD 0
+.minus%
+ ldmea (ds)!, { r0, r1 }
+ sub r0, r0, r1
+ stmea (ds)!, { r0 }
+ b next%
+
+.DOT%
+ DCD BRANCH0% : DCB ".       " : DCD dot% : DCD 0
+.dot%
+ ldmea (ds)!, { r0 }
+ adr r1, buf%
+ mov r2, #16
+ swi OS_BinaryToDecimal
+ adr r0, buf%
+ mov r1, r2
+ swi OS_WriteN
+ swi OS_WriteI + 32
+ b next%
+.buf%
+ DCD 0 : DCD 0 : DCD 0 : DCD 0
+
 .BRANCH0%
- DCD MINUS% : DCB "0BRANCH " : DCD branch0% : DCD 2
+ DCD COLON% : DCB "0BRANCH " : DCD branch0% : DCD 2
 .branch0%
  ldr r0, [ip], #4
  ldmea (ds)!, { r1 }
@@ -245,16 +202,82 @@ P% = code%
  addeq ip, ip, r0
  b next%
 
-.MINUS%
- DCD SWAp% : DCB "-       " : DCD minus% : DCD 0
-.minus%
- ldmea (ds)!, { r0, r1 }
- sub r0, r0, r1
+.COLON%  ;  LATEST @ HERE @ LATEST ! , WORD WORD2WORDS , , ' DOCOL , 0 ,
+ DCD SEMICOLON% : DCB ":       " : DCD docol% : DCD 1
+ DCD LATEST% : DCD FETCH% : DCD HERE% : DCD FETCH% : DCD LATEST% : DCD STORE% : DCD COMMA%
+ DCD WORD% : DCD WORD2WORDS% : DCD COMMA% : DCD COMMA%
+ DCD LIT% : DCD docol% : DCD COMMA%
+ DCD LIT% : DCD 0 : DCD COMMA%
+ DCD EXIT%
+
+.SEMICOLON%
+ DCD FETCH% : DCB ";       " : DCD semicolon% : DCD 1
+.semicolon%
+ adr r0, EXIT%
+ ldr r1, HERE% + PARAMS%
+ str r0, [r1], #4
+ str r1, HERE% + PARAMS%
+ b next%
+
+.FETCH%
+ DCD BRANCH% : DCB "@       " : DCD fetch% : DCD 0
+.fetch%
+ ldmea (ds)!, { r0 }
+ ldr r0, [r0]
+ stmea (ds)!, { r0 }
+ b next%
+
+.BRANCH%
+ DCD DUP% : DCB "BRANCH  " : DCD branch% : DCD 2
+.branch%
+ ldr r0, [ip]
+ add ip, ip, r0
+ b next%
+
+.DUP%
+ DCD EXIT% : DCB "DUP     " : DCD dup% : DCD 0
+.dup%
+ ldmea (ds)!, { r0 }
+ stmea (ds)!, { r0 }
+ stmea (ds)!, { r0 }
+ b next%
+
+.EXIT%
+ DCD HERE% : DCB "EXIT    " : DCD exit% : DCD 2
+.exit%
+ ldmfd (sp)!, { ip }
+ teq ip, #0
+ bne next%
+ mov pc, lr
+
+.HERE%
+ DCD IMMEDIATE% : DCB "HERE    " : DCD var% : DCD 0 : DCD end%
+.var%
+ add en, en, #PARAMS%
+ stmea (ds)!, { en }
+ b next%
+
+.IMMEDIATE%
+ DCD LATEST% : DCB "IMMEDIAT" : DCD immediate% : DCD 1
+.immediate%
+ ldr r1, HERE% + PARAMS%
+ ldr r0, [r1, #-4]
+ orr r0, r0, #1
+ str r0, [r1, #-4]
+ b next%
+
+.LATEST%
+ DCD LIT% : DCB "LATEST  " : DCD var% : DCD 0 : DCD STORE%
+
+.LIT%
+ DCD SWAp% : DCB "LIT     " : DCD lit% : DCD 2
+.lit%
+ ldr r0, [ip], #4
  stmea (ds)!, { r0 }
  b next%
 
 .SWAp%
- DCD FETCH% : DCB "SWAP    " : DCD swap% : DCD 0
+ DCD WORD% : DCB "SWAP    " : DCD swap% : DCD 0
 .swap%
  ldmea (ds)!, { r0, r1 }
  mov r2, r0
@@ -263,30 +286,8 @@ P% = code%
  stmea (ds)!, { r0, r1 }
  b next%
 
-.FETCH%
- DCD STORE% : DCB "@       " : DCD fetch% : DCD 0
-.fetch%
- ldmea (ds)!, { r0 }
- ldr r0, [r0]
- stmea (ds)!, { r0 }
- b next%
-
-.STORE%
- DCD BRANCH% : DCB "!       " : DCD store% : DCD 0
-.store%
- ldmea (ds)!, { r0, r1 }
- str r0, [r1]
- b next%
-
-.BRANCH%
- DCD WORD% : DCB "BRANCH  " : DCD branch% : DCD 2
-.branch%
- ldr r0, [ip]
- add ip, ip, r0
- b next%
-
 .WORD%
- DCD 0 : DCB "WORD    " : DCD word2% : DCD 0
+ DCD WORD2WORDS% : DCB "WORD    " : DCD word2% : DCD 0
 .word2%
  stmfd (sp)!, { lr }
  bl word%
