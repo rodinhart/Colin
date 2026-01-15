@@ -210,14 +210,9 @@ P% = code%
  DCD LIT% : DCD 0 : DCD COMMA%
  DCD EXIT%
 
-.SEMICOLON%
- DCD FETCH% : DCB ";       " : DCD semicolon% : DCD 1
-.semicolon%
- adr r0, EXIT%
- ldr r1, HERE% + PARAMS%
- str r0, [r1], #4
- str r1, HERE% + PARAMS%
- b next%
+.SEMICOLON%  ;  ' EXIT , ;
+ DCD FETCH% : DCB ";       " : DCD docol% : DCD 1
+ DCD LIT% : DCD EXIT% : DCD COMMA% : DCD EXIT%
 
 .FETCH%
  DCD BRANCH% : DCB "@       " : DCD fetch% : DCD 0
@@ -238,8 +233,8 @@ P% = code%
  DCD EXIT% : DCB "DUP     " : DCD dup% : DCD 0
 .dup%
  ldmea (ds)!, { r0 }
- stmea (ds)!, { r0 }
- stmea (ds)!, { r0 }
+ mov r1, r0
+ stmea (ds)!, { r0, r1 }
  b next%
 
 .EXIT%
