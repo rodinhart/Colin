@@ -29,7 +29,7 @@ P% = code%
  DCB "SWAP 1 + REPEAT DROP "
 
  DCB "( render loop ) "
- DCB "0 BEGIN DUP 200 < WHILE "
+ DCB "0 BEGIN DUP 300 < WHILE "
  DCB "WAIT CLS "
 
  DCB "stars 0 BEGIN DUP 30 < WHILE "
@@ -380,40 +380,36 @@ P% = code%
  DCD RAND% : DCB "PIXEL   " : DCD pixel% : DCD 0
 .pixel%
  ldmea (ds)!, { r1, r2, r3 }
- swi OS_WriteI + 18
- swi OS_WriteI + 0
- mov r0, r3
- swi OS_WriteC
+ add r2, r2, r2, lsl #2  ; *5
+ add r1, r1, r2, lsl #6  ; *64 = *320
+ ldr r0, pixel_addr%
 
- swi OS_WriteI + 25
- swi OS_WriteI + 69
+ teq r3, #21
+ moveq r3, #%00101111
+ teq r3, #42
+ moveq r3, #%11010011
+ teq r3, #63
+ moveq r3, #%11111111
 
- mov r0, r1, lsl #2
- swi OS_WriteC
- mov r0, r1, lsr #6
- swi OS_WriteC
- 
- mov r0, r2, lsl #2
- swi OS_WriteC
- mov r0, r2, lsr #6
- swi OS_WriteC
+ strb r3, [r0, r1]  ; BGGRBRTT
+
  b next%
+.pixel_addr%
+ DCD &01FD8000
 
 .RAND%
  DCD SWAp% : DCB "RAND    " : DCD rand% : DCD 0
-.rand%
- ldmea (ds)!, { r3 }
+.rand%  ; Xorshift
+ ldmea (ds)!, { r1 }
  ldr r0, rand_seed%
- ldr r1, rand_a%
- ldr r2, rand_c%
- mla r0, r1, r0, r2
+ eor r0, r0, r0, lsl #13
+ eor r0, r0, r0, lsr #17
+ eor r0, r0, r0, lsl #5
  str r0, rand_seed%
- and r0, r0, r3
+ and r0, r0, r1
  stmea (ds)!, { r0 }
  b next%
 .rand_seed% DCD &26294638
-.rand_a% DCD 1664525
-.rand_c% DCD 1013904223
 
 .SWAp%
  DCD VARIABLE% : DCB "SWAP    " : DCD swap% : DCD 0
