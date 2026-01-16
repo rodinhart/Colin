@@ -16,12 +16,12 @@ P% = code%
  DCB ": WHILE IMMEDIATE ' 0BRANCH , HERE @ 0 , ; "
  DCB ": REPEAT IMMEDIATE SWAP  ' BRANCH ,  HERE @ - ,  DUP HERE @ SWAP - SWAP ! ; "
 
- DCB "( allocate space for 20 stars ) "
- DCB "VARIABLE stars ALLOT 240 "
+ DCB "( allocate space for 30 stars ) "
+ DCB "VARIABLE stars ALLOT 360 "
 
  DCB ": MAIN "
  DCB "( setup x, y, and speed ) "
- DCB "stars 0 BEGIN DUP 20 < WHILE "
+ DCB "stars 0 BEGIN DUP 30 < WHILE "
  DCB "SWAP "
  DCB "255 RAND OVER ! 4 + "
  DCB "255 RAND OVER ! 4 + "
@@ -29,15 +29,15 @@ P% = code%
  DCB "SWAP 1 + REPEAT DROP "
 
  DCB "( render loop ) "
- DCB "0 BEGIN DUP 300 < WHILE "
+ DCB "0 BEGIN DUP 200 < WHILE "
  DCB "WAIT CLS "
 
- DCB "stars 0 BEGIN DUP 20 < WHILE "
+ DCB "stars 0 BEGIN DUP 30 < WHILE "
  DCB "SWAP "
  DCB "DUP @ OVER 4 + @ 2 PICK 8 + @ "
  DCB "DUP 2 < IF DROP 21 ELSE 3 < IF 42 ELSE 63 THEN THEN "
  DCB "PIXEL "
- DCB "DUP @ OVER 8 + @ + 255 AND OVER ! "
+ DCB "DUP @ OVER 8 + @ + DUP 320 SWAP < IF 320 - THEN OVER ! "
  DCB "12 + "
  DCB "SWAP 1 + REPEAT DROP DROP "
 
@@ -327,15 +327,14 @@ P% = code%
 .DROP%
  DCD DUP% : DCB "DROP    " : DCD drop% : DCD 0
 .drop%
- ldmea (ds)!, { r0 }
+ sub ds, ds, #4
  b next%
 
 .DUP%
  DCD EXIT% : DCB "DUP     " : DCD dup% : DCD 0
 .dup%
- ldmea (ds)!, { r0 }
- mov r1, r0
- stmea (ds)!, { r0, r1 }
+ ldr r0, [ds, #-4]
+ str r0, [ds], #4
  b next%
 
 .EXIT%
@@ -421,9 +420,7 @@ P% = code%
 .swap%
  ldmea (ds)!, { r0, r1 }
  mov r2, r0
- mov r0, r1
- mov r1, r2
- stmea (ds)!, { r0, r1 }
+ stmea (ds)!, { r1, r2 }
  b next%
 
 .VARIABLE%  ;  CREATE var% , 0 , 0 ,
