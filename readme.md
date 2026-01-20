@@ -178,3 +178,51 @@ branch-is-zero word
 
 
 ```
+
+# ARM Forth, or fantasy console
+
+## TODO
+
+- should fetch/store operate on word index, not byte index?
+
+## Forth explained, again
+
+Forth is a stack based, concatenative language. The source code comprises words that operate on the stack, and other parts of the runtime.
+
+```forth
+8 DUP * .
+```
+
+In the above example, `8` pushes the number eight on the stack, `DUP` duplicates to top element of the stack (so now there are two eights on the stack), and `*` takes the top two elements, multiplies them, and puts the result on the stack. Finally, `.` prints takes the top element and prints it.
+
+Words are defined in a dictionary, traditionally implemented as a linked list. Each definition contains information such as the word (e.g. `DUP`), a pointer to the code, any parameters, and some flags.
+
+The Forth compiler reads the words one at a time, and takes some action depending on the type of word. In pseudo code:
+
+```
+while WORD
+  if lookup WORD
+    if lookup WORD is immediate
+      execute lookup WORD
+    else
+      append lookup WORD
+  else
+    if lookup WORD is number
+      append LIT number
+    else
+      signal error
+```
+
+Let's step through this with a simple example:
+
+```forth
+: SQ DUP * ;
+```
+
+`:` A word called 'colon' which has the immediate flag set, meaning it will be executed straight away. Colon will read the next word (`SQ`) and create a new dictionary definition for that name. The code for this definition is `docol` which will execute a list compiled words stored in the parameter space. Any following compilation will be placed in this space.
+
+`DUP` This is not an immediate word so a pointer to the dictionary definition will be appended at the current position (the params space for `SQ`).
+
+`*` Another regular word, so again, appended.
+
+`;` Semicolon, another immediate word. When executed it will finalize the definition for `SQ` by appending a pointer to `EXIT`. When `SQ` is executed, `EXIT` will return to the caller.
