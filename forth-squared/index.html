@@ -1,32 +1,60 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <script src="./libwabt.js"></script>
+    <script src="./index.js" type="module"></script>
     <style>
       #palette {
         display: flex;
         flex-wrap: wrap;
         gap: 5px;
-        width: 143px;
+        width: 175px;
       }
 
       #palette div {
-        border: 1px solid black;
-        width: 30px;
-        height: 30px;
+        width: 40px;
+        height: 40px;
       }
     </style>
   </head>
   <body>
-    <h3>
-      <p>
-        Forth Squared has a 16 colours palette, taken from
-        <a href="https://alumni.media.mit.edu/~wad/color/palette.html"
-          >An Optimum 16 Color Palette</a
-        >
-      </p>
-      <div id="palette"></div>
-    </h3>
-    <script>
+    <h3>Colours</h3>
+    <p>
+      Forth Squared has a 16 colour palette, taken from
+      <a href="https://alumni.media.mit.edu/~wad/color/palette.html"
+        >An Optimum 16 Color Palette</a
+      >.
+    </p>
+    <div id="palette"></div>
+    <h3>Memory map</h3>
+    <p>Forth Squared has 64 KB of memory.</p>
+    <pre>
+      0000 version
+      0002 pointer to source
+      0004 pointer to heap
+      0006 asm
+      ssss source
+      hhhh heap (word dictionary)
+      7FFF stack (data stack and call stack)
+      8000 screen memory (32 KB)
+    </pre>
+    <ul>
+      <li>
+        The asm provides the Forth runtime in whatever form the implementation
+        host uses, but usually it is binary code
+      </li>
+      <li>The source is ascii encoded text.</li>
+      <li>
+        The data stack is empty-ascending and initialised to just after the
+        source.
+      </li>
+      <li>The call stack is full-descending and initialised to 0x8000.</li>
+      <li>The screen memory is 32Kb</li>
+    </ul>
+    <script type="module">
+      // https://ditherit.com/
+      // [{"hex":"#000000"},{"hex":"#575757"},{"hex":"#a0a0a0"},{"hex":"#ffffff"},{"hex":"#2a4bd7"},{"hex":"#1d6914"},{"hex":"#814a19"},{"hex":"#8126c0"},{"hex":"#9dafff"},{"hex":"#81c57a"},{"hex":"#e9debb"},{"hex":"#ad2323"},{"hex":"#29d0d0"},{"hex":"#ffee33"},{"hex":"#ff9233"},{"hex":"#ffcdf3"}]
+
       const palette = {
         Black: "#000000",
         "Dk. Gray": "#575757",
@@ -52,92 +80,9 @@
       for (const [name, hex] of Object.entries(palette)) {
         const div = document.createElement("div")
         div.style.backgroundColor = hex
+        div.title = name
         document.getElementById("palette").appendChild(div)
       }
-
-      const src = `
-Black
-Lab: 0, 0, 0
-HSB: 0, 0, 0
-RGB: 0, 0, 0
-Dk. Gray
-Lab: 50, 0, 0
-HSB: 0, 0, 34
-RGB: 87, 87, 87
-Red
-Lab: 50, 58, 40
-HSB: 0, 80, 68
-RGB: 173, 35, 35
-Blue
-Lab: 50, 40, -77
-HSB: 229, 80, 95
-RGB: 42, 75, 215
-Green
-Lab: 50, -50, 42
-HSB: 114, 80, 41
-RGB: 29, 105, 20
-Brown
-Lab: 50, 20, 44
-HSB: 28, 80, 51
-RGB: 129, 74, 25
-Purple
-Lab: 50, 65, -61
-HSB: 275, 80, 75
-RGB: 129, 38, 192
-Lt. Gray
-Lab: 75, 0, 0
-HSB: 0, 0, 63
-RGB: 160, 160, 160
-Lt. Green
-Lab: 80, -34, 25
-HSB: 114, 38, 77
-RGB: 129, 197, 122
-Lt. Blue
-Lab: 80, 9, -34
-HSB: 229, 38, 100
-RGB: 157, 175, 255
-Cyan
-Lab: 80, -43, -14
-HSB: 180, 80, 82
-RGB: 41, 208, 208
-Orange
-Lab: 80, 28, 62
-HSB: 28, 80, 100
-RGB: 255, 146, 51
-Yellow
-Lab: 96, -19, 77
-HSB: 60, 80, 97
-RGB: 255, 238, 51
-Tan
-Lab: 91, 5, 12
-HSB: 28, 20, 93
-RGB: 233, 222, 187
-Pink
-Lab: 91, 15, 6
-HSB: 0, 20, 100
-RGB: 255, 205, 243
-White
-Lab: 100, 0, 0
-HSB: 0, 0, 100
-RGB: 255, 255, 255      
-      `
-
-      const c = (s) => Number(s).toString(16).padStart(2, "0")
-
-      console.log(
-        JSON.stringify(
-          Object.fromEntries(
-            [
-              ...src.matchAll(
-                /\n(?<name>(\w| |\.)+)\n\s*Lab:(.|\n)*?HSB:(.|\n)*?RGB: (?<red>\d+), (?<green>\d+), (?<blue>\d+)/g,
-              ),
-            ].map((m) => [
-              m.groups["name"],
-              `#${c(m.groups["red"])}${c(m.groups["green"])}${c(m.groups["blue"])}`,
-            ]),
-          ),
-        ),
-      )
     </script>
   </body>
 </html>
