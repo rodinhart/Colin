@@ -14,28 +14,28 @@
   (elem (i32.const 3) $docol)
 
   (func $var (param i32)
+    global.get $ds ;; decrement ds
+    i32.const 4
+    i32.sub
+    global.set $ds
+
     global.get $ds ;; push pointer to params
     local.get 0
     i32.const ${PARAMS * 4}
     i32.add
     i32.store
-
-    global.get $ds ;; increment ds
-    i32.const 4
-    i32.add
-    global.set $ds
   )
 
   (func $lit (param i32)
+    global.get $ds ;; decrement ds
+    i32.const 4
+    i32.sub
+    global.set $ds
+
     global.get $ds
     global.get $ip ;; load value from ip
     i32.load
     i32.store ;; push value
-    global.get $ds
-
-    i32.const 4 ;; increment ds
-    i32.add
-    global.set $ds
 
     global.get $ip ;; increment ip
     i32.const 4
@@ -44,17 +44,31 @@
   )
 
   (func $dot (param i32)
-    global.get $ds ;; decrease ds
-    i32.const 4
-    i32.sub
-    global.set $ds
-
     global.get $ds ;; pop value
     i32.load
     call $log
+
+    global.get $ds ;; increment ds
+    i32.const 4
+    i32.add
+    global.set $ds
   )
 
-  (func $docol (export "docol") (param i32))
+  (func $docol (export "docol") (param $en i32)
+    global.get $sp ;; decrement sp
+    i32.const 4
+    i32.sub
+    global.set $sp
+
+    global.get $sp
+    global.get $ip ;; push ip to call stack
+    i32.store
+
+    local.get $en ;; point ip to compiled words
+    i32.const ${PARAMS * 4}
+    i32.add
+    global.set $ip
+  )
 
   (func $init (export "init") (param $ip i32) (param $ds i32) (param $sp i32)
     local.get $ip

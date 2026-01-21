@@ -101,9 +101,10 @@ while (cur) {
   cur = view[cur + LINK]
 }
 
-const { init, next } = wasmInstance.exports
+const { init, next, docol } = wasmInstance.exports
 
 view[view[19]] = DOT
-view[0x3000] = 42
-init(view[19], 0x3001, 0x4000) // ip, ds, sp
+view[0x2fff] = 42
+init(0, 0x2fff, 0x4000) // ip, ds, sp
+docol((view[19] - PARAMS) * 4)
 next()
