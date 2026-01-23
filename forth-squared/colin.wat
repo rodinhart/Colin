@@ -25,7 +25,7 @@
 
     global.get $ds ;; push pointer to params
     local.get $en
-    i32.const ${PARAMS * 4}
+    i32.const ${PARAMS * 2}
     i32.add
     i32.store
   )
@@ -69,7 +69,7 @@
     i32.store
 
     local.get $en ;; point ip to compiled words
-    i32.const ${PARAMS * 4}
+    i32.const ${PARAMS * 2}
     i32.add
     global.set $ip
   )
@@ -137,17 +137,17 @@
 
   (func $init (export "init") (param $ip i32) (param $ds i32) (param $sp i32)
     local.get $ip
-    i32.const 2
+    i32.const 1
     i32.shl
     global.set $ip
 
     local.get $ds
-    i32.const 2
+    i32.const 1
     i32.shl
     global.set $ds
 
     local.get $sp
-    i32.const 2
+    i32.const 1
     i32.shl
     global.set $sp
   )
@@ -157,7 +157,7 @@
 
     global.get $ip ;; load pointer to word
     i32.load
-    i32.const 2
+    i32.const 1
     i32.shl
 
     global.get $ip ;; increment ip
@@ -167,13 +167,13 @@
 
     local.tee $en ;; call word with en
     local.get $en
-    i32.const ${CODEWORD * 4}
+    i32.const ${CODEWORD * 2}
     i32.add
     i32.load
     call_indirect (type $native)
 
     global.get $ip
-    i32.const 2
+    i32.const 1
     i32.shr_u
   )
 )

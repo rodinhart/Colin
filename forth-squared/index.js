@@ -1,8 +1,5 @@
-// init screen
-const canvas = document.getElementById("canvas")
-const g = canvas.getContext("2d")
-g.fillStyle = "black"
-g.fillRect(0, 0, 255, 255)
+// https://ditherit.com/
+// [{"hex":"#000000"},{"hex":"#575757"},{"hex":"#a0a0a0"},{"hex":"#ffffff"},{"hex":"#2a4bd7"},{"hex":"#1d6914"},{"hex":"#814a19"},{"hex":"#8126c0"},{"hex":"#9dafff"},{"hex":"#81c57a"},{"hex":"#e9debb"},{"hex":"#ad2323"},{"hex":"#29d0d0"},{"hex":"#ffee33"},{"hex":"#ff9233"},{"hex":"#ffcdf3"}]
 
 const palette = {
   Black: "#000000",
@@ -26,15 +23,28 @@ const palette = {
   Pink: "#ffcdf3",
 }
 
+for (const [name, hex] of Object.entries(palette)) {
+  const div = document.createElement("div")
+  div.style.backgroundColor = hex
+  div.title = name
+  document.getElementById("palette").appendChild(div)
+}
+
+// init screen
+const canvas = document.getElementById("canvas")
+const g = canvas.getContext("2d")
+g.fillStyle = "black"
+g.fillRect(0, 0, 255, 255)
+
+// Forth constants
+const LINK = 0
+const NAME = 2
+const CODEWORD = 4
+const FLAGS = 6
+const PARAMS = 8
+
 // build wasm
 const wabt = await WabtModule()
-
-const LINK = 0
-const NAME = 1
-const CODEWORD = 2
-const FLAGS = 3
-const PARAMS = 4
-
 const code = await fetch("./colin.wat").then((r) => r.text())
 const module = wabt.parseWat("test.wast", eval(`\`${code}\``), wabt.FEATURES)
 
@@ -43,12 +53,10 @@ module.validate(wabt.FEATURES)
 const binaryOutput = module.toBinary({ log: true, write_debug_names: true })
 const binaryBuffer = binaryOutput.buffer
 const wasm = new WebAssembly.Module(binaryBuffer)
-const align = (p) => (p + 1) & ~1
-const inwords = (p) => align(p) / 2
-console.log(`wasm: ${inwords(binaryBuffer.length)} words`)
+console.log(`wasm: ${binaryBuffer.length} bytes`)
 
 const mem = new WebAssembly.Memory({
-  initial: 2,
+  initial: 2, // 128 KB
   maximum: 2,
 })
 const wasmInstance = new WebAssembly.Instance(wasm, {
@@ -61,64 +69,73 @@ const wasmInstance = new WebAssembly.Instance(wasm, {
     },
   },
 })
+const { init, next, docol } = wasmInstance.exports
 
 // init forth
-const view = new Uint32Array(mem.buffer)
+const align = (p) => (p + 1) & ~1
+
+const view = new Uint16Array(mem.buffer)
 // header
 view[0] = 1 // version
-view[1] = 3 + inwords(binaryBuffer.length) // pointer to source
-view[2] = 3 + inwords(binaryBuffer.length) + 0 // pointer to heap
+view[2] = 6 + align(binaryBuffer.length) // pointer to source
+view[4] = 6 + align(binaryBuffer.length) + 0 // pointer to heap
 
 // Forth
 const str2int = (s) => s.charCodeAt(0) | (s.charCodeAt(1) << 8)
 
-view[3] = str2int("LA")
-view[4] = str2int("TE")
-view[5] = str2int("ST")
-view[6] = str2int("  ")
-view[7] = 15 // link
-view[8] = 3 // name
-view[9] = 0 // codeword
-view[10] = 0 // flags
-view[11] = 7 // params
+view[6] = str2int("LA")
+view[8] = str2int("TE")
+view[10] = str2int("ST")
+view[12] = str2int("  ")
+view[14] = 30 // link
+view[16] = 6 // name
+view[18] = 0 // codeword
+view[20] = 0 // flags
+view[22] = 14 // params
 
-view[12] = str2int("HE")
-view[13] = str2int("RE")
-view[14] = str2int("  ")
-view[15] = 0 // link
-view[16] = 12 // name
-view[17] = 0 // codeword
-view[18] = 0 // flags
-view[19] = 20 // params
+view[24] = str2int("HE")
+view[26] = str2int("RE")
+view[28] = str2int("  ")
+view[30] = 0 // link
+view[32] = 24 // name
+view[34] = 0 // codeword
+view[36] = 0 // flags
+view[38] = 40 // params
 
 const appendStr = (s) => {
-  let here = view[19]
+  let here = view[38]
 
   for (let i = 0; i < s.length; i += 2) {
-    view[here++] = str2int(s.slice(i, i + 2))
+    view[here] = str2int(s.slice(i, i + 2))
+    here += 2
   }
 
-  view[19] = here
+  view[38] = here
 }
 
 const create = (name, codeword, ...params) => {
-  const ptr = view[19]
+  const ptr = view[38]
   appendStr(name)
 
-  let here = view[19]
-  const latest = view[11]
-  view[11] = here
-  view[here++] = latest
-  view[here++] = ptr
-  view[here++] = codeword
-  view[here++] = 0 // flags
+  let here = view[38]
+  const latest = view[22]
+  view[22] = here
+  view[here] = latest
+  here += 2
+  view[here] = ptr
+  here += 2
+  view[here] = codeword
+  here += 2
+  view[here] = 0 // flags
+  here += 2
   for (const param of params) {
-    view[here++] = param
+    view[here] = param
+    here += 2
   }
 
-  view[19] = here
+  view[38] = here
 
-  return view[11]
+  return view[22]
 }
 
 const LIT = create("LIT ", 1)
@@ -127,7 +144,7 @@ const EXIT = create("EXIT  ", 4)
 const PLUS = create("+ ", 5)
 const PIXEL = create("PIXEL ", 6)
 
-const SOURCE = view[19]
+const SOURCE = view[38]
 appendStr(`LIT 100 LIT 50 LIT 11 PIXEL EXIT `)
 
 const MAIN = create("MAIN  ", 3, LIT, 100, LIT, 50, LIT, 11, PIXEL, EXIT)
@@ -143,24 +160,26 @@ const getName = (i) => {
       break
     }
 
-    i++
+    i += 2
   }
 
   return name.join("").trim()
 }
 
 // display dictionary
-let cur = view[11]
+let cur = view[22]
 while (cur) {
   const params = []
   if (view[cur + CODEWORD] === 3) {
     let i = cur + PARAMS
     while (i < view.length) {
-      const en = view[i++]
+      const en = view[i]
+      i += 2
       params.push(getName(view[en + NAME]))
 
       if (en === LIT) {
-        params.push(view[i++])
+        params.push(view[i])
+        i += 2
       }
 
       if (en === EXIT) {
@@ -177,10 +196,8 @@ while (cur) {
   cur = view[cur + LINK]
 }
 
-const { init, next, docol } = wasmInstance.exports
-
-init(0, 0x3000, 0x4000) // ip, ds, sp
-docol(MAIN * 4)
+init(0, 0x6000, 0x8000) // ip, ds, sp
+docol(MAIN * 2)
 let max = 1000
 while (max > 0 && next() !== 0) {
   max--
