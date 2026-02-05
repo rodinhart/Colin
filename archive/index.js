@@ -14,7 +14,7 @@ const CLS = () => {
 
 const PIXEL = (x, y, col) => {
   const rgb = [(col >>> 0) & 3, (col >>> 2) & 3, (col >>> 4) & 3].map((c) =>
-    ("0" + (85 * c).toString(16)).slice(-2)
+    ("0" + (85 * c).toString(16)).slice(-2),
   )
   g.fillStyle = `#${rgb.join("")}`
   g.fillRect(SCALE * (x % 256), SCALE * (y % 256), SCALE, SCALE)
@@ -60,9 +60,9 @@ if (DEBUG) {
             typeof forth.memory()[x - 1] === "string"
               ? ` (${forth.memory()[x - 1]})`
               : ""
-          }`
+          }`,
       )
-      .join("\n")
+      .join("\n"),
   )
 }
 
