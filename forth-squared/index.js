@@ -1,3 +1,5 @@
+// Construct palette for documentation
+
 // https://ditherit.com/
 // [{"hex":"#000000"},{"hex":"#575757"},{"hex":"#a0a0a0"},{"hex":"#ffffff"},{"hex":"#2a4bd7"},{"hex":"#1d6914"},{"hex":"#814a19"},{"hex":"#8126c0"},{"hex":"#9dafff"},{"hex":"#81c57a"},{"hex":"#e9debb"},{"hex":"#ad2323"},{"hex":"#29d0d0"},{"hex":"#ffee33"},{"hex":"#ff9233"},{"hex":"#ffcdf3"}]
 
@@ -30,6 +32,25 @@ for (const [name, hex] of Object.entries(palette)) {
   document.getElementById("palette").appendChild(div)
 }
 
+// helpers
+const getName = (i) => {
+  const name = []
+  while (i < view.length) {
+    const b = (i & 1) === 1 ? view[i - 1] >> 8 : view[i]
+    const c = b & 255
+
+    if (c <= 32) {
+      break
+    }
+
+    name.push(String.fromCharCode(c))
+
+    i++
+  }
+
+  return name.join("")
+}
+
 // init screen
 const canvas = document.getElementById("canvas")
 const g = canvas.getContext("2d")
@@ -42,6 +63,9 @@ const NAME = 2
 const CODEWORD = 4
 const FLAGS = 6
 const PARAMS = 8
+
+const HERE = 38
+const LATEST = 22
 
 // build wasm
 const wabt = await WabtModule()
@@ -63,13 +87,14 @@ const wasmInstance = new WebAssembly.Instance(wasm, {
   js: {
     mem,
     log: (x) => console.log("forth says:", x),
+    number: (x) => Number(getName(x)),
     pix: (c, y, x) => {
       g.fillStyle = Object.values(palette)[c % 16]
       g.fillRect(x, 255 - y, 1, 1)
     },
   },
 })
-const { init, next, docol } = wasmInstance.exports
+const { init, next, docol, word, find, eval: evil } = wasmInstance.exports
 
 // init forth
 const align = (p) => (p + 1) & ~1
@@ -145,26 +170,22 @@ const PLUS = create("+ ", 5)
 const PIXEL = create("PIXEL ", 6)
 
 const SOURCE = view[38]
-appendStr(`LIT 100 LIT 50 LIT 11 PIXEL EXIT `)
+appendStr(`100 50 10 PIXEL EXIT `)
+const SOURCE_END = view[38]
 
-const MAIN = create("MAIN  ", 3, LIT, 100, LIT, 50, LIT, 11, PIXEL, EXIT)
+console.log({ LIT, DOT, EXIT, PLUS, PIXEL, SOURCE })
 
-const getName = (i) => {
-  const name = []
-  while (i < view.length) {
-    name.push(
-      String.fromCharCode(view[i] & 255),
-      String.fromCharCode(view[i] >> 8),
-    )
-    if (name.at(-1) === " ") {
-      break
-    }
+const MAIN = create("MAIN  ", 3) // LIT, 100, LIT, 50, LIT, 9, PIXEL, EXIT)
 
-    i += 2
-  }
+init(0, 0x7000, 0x8000, SOURCE) // ip, ds, sp, in
+evil(SOURCE_END)
 
-  return name.join("").trim()
+docol(MAIN)
+let max = 1000
+while (max-- > 0 && next() !== 0) {
+  //
 }
+console.log("Ops: ", 1000 - max)
 
 // display dictionary
 let cur = view[22]
@@ -194,11 +215,4 @@ while (cur) {
   )
 
   cur = view[cur + LINK]
-}
-
-init(0, 0x6000, 0x8000) // ip, ds, sp
-docol(MAIN * 2)
-let max = 1000
-while (max > 0 && next() !== 0) {
-  max--
 }
