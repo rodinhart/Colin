@@ -151,7 +151,7 @@
     i32.and
   )
 
-  (func $word (export "word") (result i32)
+  (func $word (result i32)
     global.get $in ;; put result on stack
 
     (loop $loop
@@ -185,7 +185,7 @@
     )
   )
 
-  (func $find (export "find") (param $ptr i32) (param $dic i32) (result i32)
+  (func $find (param $ptr i32) (param $dic i32) (result i32)
     local.get $dic
     (if (result i32)
       (then

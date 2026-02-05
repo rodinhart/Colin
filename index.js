@@ -1,36 +1,6 @@
-// Construct palette for documentation
-
-// https://ditherit.com/
-// [{"hex":"#000000"},{"hex":"#575757"},{"hex":"#a0a0a0"},{"hex":"#ffffff"},{"hex":"#2a4bd7"},{"hex":"#1d6914"},{"hex":"#814a19"},{"hex":"#8126c0"},{"hex":"#9dafff"},{"hex":"#81c57a"},{"hex":"#e9debb"},{"hex":"#ad2323"},{"hex":"#29d0d0"},{"hex":"#ffee33"},{"hex":"#ff9233"},{"hex":"#ffcdf3"}]
-
-const palette = {
-  Black: "#000000",
-  "Dk. Gray": "#575757",
-  "Lt. Gray": "#a0a0a0",
-  White: "#ffffff",
-
-  Blue: "#2a4bd7",
-  Green: "#1d6914",
-  Brown: "#814a19",
-  Purple: "#8126c0",
-
-  "Lt. Blue": "#9dafff",
-  "Lt. Green": "#81c57a",
-  Tan: "#e9debb",
-  Red: "#ad2323",
-
-  Cyan: "#29d0d0",
-  Yellow: "#ffee33",
-  Orange: "#ff9233",
-  Pink: "#ffcdf3",
-}
-
-for (const [name, hex] of Object.entries(palette)) {
-  const div = document.createElement("div")
-  div.style.backgroundColor = hex
-  div.title = name
-  document.getElementById("palette").appendChild(div)
-}
+import { LINK, NAME, CODEWORD, FLAGS, PARAMS, HERE, LATEST } from "./util.js"
+import hardware from "./hardware.js" // could return 64 K of memory
+import loadWasm from "./wasm.js"
 
 // helpers
 const getName = (i) => {
@@ -51,36 +21,12 @@ const getName = (i) => {
   return name.join("")
 }
 
-// init screen
-const canvas = document.getElementById("canvas")
-const g = canvas.getContext("2d")
-g.fillStyle = "black"
-g.fillRect(0, 0, 255, 255)
+const { pixel } = hardware()
 
-// Forth constants
-const LINK = 0
-const NAME = 2
-const CODEWORD = 4
-const FLAGS = 6
-const PARAMS = 8
-
-const HERE = 38
-const LATEST = 22
-
-// build wasm
-const wabt = await WabtModule()
-const code = await fetch("./colin.wat").then((r) => r.text())
-const module = wabt.parseWat("test.wast", eval(`\`${code}\``), wabt.FEATURES)
-
-module.resolveNames()
-module.validate(wabt.FEATURES)
-const binaryOutput = module.toBinary({ log: true, write_debug_names: true })
-const binaryBuffer = binaryOutput.buffer
-const wasm = new WebAssembly.Module(binaryBuffer)
-console.log(`wasm: ${binaryBuffer.length} bytes`)
-
+// init wasm
+const { wasm, buffer: binaryBuffer } = await loadWasm()
 const mem = new WebAssembly.Memory({
-  initial: 2, // 128 KB
+  initial: 2, // 128 K
   maximum: 2,
 })
 const wasmInstance = new WebAssembly.Instance(wasm, {
@@ -89,12 +35,11 @@ const wasmInstance = new WebAssembly.Instance(wasm, {
     log: (x) => console.log("forth says:", x),
     number: (x) => Number(getName(x)),
     pix: (c, y, x) => {
-      g.fillStyle = Object.values(palette)[c % 16]
-      g.fillRect(x, 255 - y, 1, 1)
+      pixel(x, y, c)
     },
   },
 })
-const { init, next, docol, word, find, eval: evil } = wasmInstance.exports
+const { init, next, docol, eval: evil } = wasmInstance.exports
 
 // init forth
 const align = (p) => (p + 1) & ~1
@@ -170,7 +115,7 @@ const PLUS = create("+ ", 5)
 const PIXEL = create("PIXEL ", 6)
 
 const SOURCE = view[38]
-appendStr(`100 50 10 PIXEL EXIT `)
+appendStr(`100 50 15 PIXEL EXIT `)
 const SOURCE_END = view[38]
 
 console.log({ LIT, DOT, EXIT, PLUS, PIXEL, SOURCE })
