@@ -37,12 +37,12 @@ export default () => {
   const canvas = document.getElementById("canvas")
   const g = canvas.getContext("2d")
   g.fillStyle = "black"
-  g.fillRect(0, 0, 255, 255)
+  g.fillRect(0, 0, 511, 511)
 
   return {
     pixel: (x, y, c) => {
       g.fillStyle = Object.values(palette)[c % 16]
-      g.fillRect(x, 255 - y, 1, 1)
+      g.fillRect(2 * x, 511 - 2 * y, 2, 2)
     },
   }
 }

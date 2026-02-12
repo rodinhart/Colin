@@ -1,3 +1,45 @@
+# Forth Squared, a fantasy console
+
+Consider the following Forth program:
+
+```forth
+: MAIN IMMEDIATE 3 DUP * . ; MAIN
+```
+
+The first step is to implement `EVAL` natively. In pseudocode:
+
+```
+while WORD
+  FIND word in dictionary
+    if found
+      if IMMEDIATE word
+        execute word
+      else
+        append at HERE
+    else
+      append as NUMBER at HERE
+```
+
+`WORD` returns the next word, or `null` if the input is exhausted.
+
+`FIND` returns the most recent matching entry in the dictionary, or `null` for no match.
+
+The dictionary is implemented as a linked list. Each entry has link to the next entry or `null`, a name, a codeword, flags, and parameters.
+
+`LATEST` is a variable that points to the first entry in the dictionary.
+
+A variable has one parameter where the value is stored. The codeword `var` returns a pointer to that parameter.
+
+To execute a word we call the codeword with a pointer to the entry. The codeword ends by calling `next` which normally executes the next word. This implies setting up the instruction pointer `ip` in such a way that `next` returns to the native `EVAL`.
+
+`HERE` is another variable that points to where compilation occurs.
+
+`NUMBER` converts a word into a number
+
+---
+
+---
+
 # Colin
 
 An playground forth, implemented in JavaScript first to tease out the structure. The idea is then to port it to somewhere very low level, like the ARM2 (RISC-OS 3), 6502 (BBC Micro) or WebAssembly.

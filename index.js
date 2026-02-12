@@ -83,7 +83,7 @@ const appendStr = (s) => {
   view[38] = here
 }
 
-const create = (name, codeword, ...params) => {
+const create = (name, flags, codeword, ...params) => {
   const ptr = view[38]
   appendStr(name)
 
@@ -96,7 +96,7 @@ const create = (name, codeword, ...params) => {
   here += 2
   view[here] = codeword
   here += 2
-  view[here] = 0 // flags
+  view[here] = flags
   here += 2
   for (const param of params) {
     view[here] = param
@@ -108,19 +108,17 @@ const create = (name, codeword, ...params) => {
   return view[22]
 }
 
-const LIT = create("LIT ", 1)
-const DOT = create(". ", 2)
-const EXIT = create("EXIT  ", 4)
-const PLUS = create("+ ", 5)
-const PIXEL = create("PIXEL ", 6)
+const LIT = create("LIT ", 0, 1)
+const DOT = create(". ", 0, 2)
+const EXIT = create("EXIT  ", 0, 4)
+const PLUS = create("+ ", 0, 5)
+const PIXEL = create("PIXEL ", 0, 6)
 
 const SOURCE = view[38]
 appendStr(`100 50 15 PIXEL EXIT `)
 const SOURCE_END = view[38]
 
-console.log({ LIT, DOT, EXIT, PLUS, PIXEL, SOURCE })
-
-const MAIN = create("MAIN  ", 3) // LIT, 100, LIT, 50, LIT, 9, PIXEL, EXIT)
+const MAIN = create("MAIN  ", 0, 3)
 
 init(0, 0x7000, 0x8000, SOURCE) // ip, ds, sp, in
 evil(SOURCE_END)

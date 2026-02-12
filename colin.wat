@@ -254,7 +254,22 @@
           (else
             local.get $t
             local.get $u
-            i32.sub ;; need to recurse here
+            i32.sub
+            local.tee $t
+            (if (result i32)
+              (then
+                local.get $t
+              )
+              (else
+                local.get $a
+                i32.const 1
+                i32.add
+                local.get $b
+                i32.const 1
+                i32.add
+                call $compare
+              )
+            )
           )
         )
       )
@@ -274,17 +289,49 @@
       local.tee $entry
       (if
         (then
-          local.get $entry ;; store entry
-          i32.const ${HERE} ;; get HERE
-          call $loadWord
-          local.tee $here
-          call $storeWord
-
-          local.get $here ;; increment here and store
-          i32.const 2
+          local.get $entry
+          i32.const ${FLAGS}
           i32.add
-          i32.const ${HERE}
-          call $storeWord
+          call $loadWord
+          i32.const 1
+          i32.and
+          (if
+            (then
+              ;; execute immediate word
+              i32.const 0
+              global.set $ip
+
+              local.get $entry
+              local.get $entry
+              i32.const ${CODEWORD}
+              i32.add
+              call $loadWord
+              call_indirect (type $native)
+              (loop $exec
+                global.get $ip
+                (if
+                  (then
+                    call $next
+                    br $exec
+                    global.set $ip
+                  )
+                )
+              )
+            )
+            (else
+              local.get $entry ;; store entry
+              i32.const ${HERE} ;; get HERE
+              call $loadWord
+              local.tee $here
+              call $storeWord
+
+              local.get $here ;; increment here and store
+              i32.const 2
+              i32.add
+              i32.const ${HERE}
+              call $storeWord
+            )
+          )
         )
         (else
           i32.const ${HERE} ;; get HERE
@@ -334,7 +381,7 @@
     global.set $in
   )
 
-  (func (export "next") (result i32)
+  (func $next (export "next") (result i32)
     (local $en i32)
 
     global.get $ip ;; load pointer to word
